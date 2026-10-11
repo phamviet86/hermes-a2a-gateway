@@ -17,6 +17,7 @@ import socket
 import ssl
 import stat
 import sys
+import time
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
@@ -145,6 +146,7 @@ class ClientService:
         self.last_transport_error: str | None = None
         self.native_status: dict[str, Any] = {"supported": False, "reason": "not_checked"}
         self._unknown_reconciled: set[str] = set()
+        self.receipt_errors: dict[tuple[str, str, str], float] = {}
 
     async def start(self) -> None:
         if self.tunnel is not None:
@@ -169,12 +171,12 @@ class ClientService:
                 if self.tunnel is not None:
                     await self.tunnel.close()
             finally:
-                self.store.close()
+                await self._store("close")
 
-    def ingest(self, snapshot: Any, seq: int | None = None, *, expected_id: str | None = None) -> None:
+    async def ingest(self, snapshot: Any, seq: int | None = None, *, expected_id: str | None = None) -> None:
         if not isinstance(snapshot, dict) or (expected_id is not None and snapshot.get("operation_id") != expected_id):
             raise ValueError("broker returned a different operation identity")
-        self.store.accept_snapshot(snapshot, seq)
+        await self._store("accept_snapshot", snapshot, seq)
         self.changed.set()
         self.wake.set()
 
@@ -183,46 +185,65 @@ class ClientService:
         if response.status_code == 404:
             return False
         response.raise_for_status()
-        self.ingest(response.json(), expected_id=operation_id)
+        await self.ingest(response.json(), expected_id=operation_id)
         return True
 
+    async def _store(self, method: str, *args: Any, **kwargs: Any) -> Any:
+        # RLock serializes all SQLite access; FULL fsync stays off the event loop.
+        return await asyncio.to_thread(getattr(self.store, method), *args, **kwargs)
+
     async def recover(self) -> None:
-        for operation_id in self.store.ids():
+        for operation_id in await self._store("ids", active=True):
             await self.refresh(operation_id)
 
     async def dispatch_pending(self) -> None:
-        for operation_id in self.store.ids(pending=True):
+        for operation_id in await self._store("ids", pending=True):
             # GET first after an ambiguous broker ACK. Only this new broker API has
             # an exact-ID idempotency contract; this never retries Hermes directly.
             if await self.refresh(operation_id):
                 continue
             try:
-                payload = self.store.payload(operation_id)
+                payload = await self._store("payload", operation_id)
             except InvalidToken:
-                self.store.mark_submission(operation_id, "payload_key_unavailable")
+                await self._store("mark_submission", operation_id, "payload_key_unavailable")
                 continue
             if payload is None:
-                self.store.mark_submission(operation_id, "outcome_unknown")
+                await self._store("mark_submission", operation_id, "outcome_unknown")
                 continue
             response = await self.broker.post("/v1/operations", json=payload)
             if response.status_code in {400, 403, 409, 413, 422}:
-                self.store.mark_submission(operation_id, "rejected")
+                await self._store("mark_submission", operation_id, "rejected")
                 self.changed.set()
                 continue
             response.raise_for_status()
-            self.ingest(response.json(), expected_id=operation_id)
+            await self.ingest(response.json(), expected_id=operation_id)
 
     async def flush_receipts(self) -> None:
-        for receipt in self.store.receipts():
+        for receipt in await self._store("receipts"):
+            key = (receipt["operation_id"], receipt["result_id"], receipt["status"])
+            if self.receipt_errors.get(key, 0) > time.monotonic():
+                continue
             response = await self.broker.post(
                 "/v1/receipts", json={key: receipt[key] for key in ("operation_id", "result_id", "status")}
             )
+            if response.status_code in {400, 404, 409, 422}:
+                # Preserve the receipt, expose the problem, and let later receipts progress.
+                self.receipt_errors[key] = time.monotonic() + 60
+                continue
             response.raise_for_status()
-            self.store.receipt_sent(receipt)
+            self.receipt_errors.pop(key, None)
+            await self._store("receipt_sent", receipt)
 
     async def deliver_ready(self) -> None:
-        for operation_id in self.store.ids():
-            row = self.store.row(operation_id)
+        for operation_id in await self._store("ids", deliverable=True):
+            row = await self._store("row", operation_id)
+            # Only the original Codex namespace has a verified queue adapter.
+            # Never send another harness/instance's conversation to Codex,
+            # including uncertain deliveries recovered after a daemon restart.
+            if row["thread_id"].startswith("harness:"):
+                if row["delivery_state"] in {"ready", "inline_pending"}:
+                    await self._store("finish_delivery", operation_id, "unsupported")
+                continue
             if row["delivery_state"] == "delivery_outcome_unknown" and operation_id not in self._unknown_reconciled:
                 self._unknown_reconciled.add(operation_id)
                 if self.native_status["supported"] and row["snapshot"]:
@@ -231,26 +252,26 @@ class ClientService:
                     try:
                         queue_id = await self.delivery.reconcile(row["thread_id"], row["delivery_id"], text)
                         if queue_id:
-                            self.store.finish_delivery(operation_id, "queued", queue_id)
+                            await self._store("finish_delivery", operation_id, "queued", queue_id)
                     except (NativeUnsupported, NativeOutcomeUnknown):
                         pass
                 continue
-            claimed = self.store.claim_delivery(operation_id)
+            claimed = await self._store("claim_delivery", operation_id)
             if not claimed:
                 continue
             if not self.native_status["supported"]:
-                self.store.finish_delivery(operation_id, "unsupported")
+                await self._store("finish_delivery", operation_id, "unsupported")
                 continue
             text = result_reference(operation_id, claimed["snapshot"]["result_id"])
             try:
                 queue_id = await self.delivery.enqueue(claimed["thread_id"], claimed["delivery_id"], text)
             except NativeUnsupported:
-                self.store.finish_delivery(operation_id, "unsupported")
+                await self._store("finish_delivery", operation_id, "unsupported")
             except NativeOutcomeUnknown:
-                self.store.finish_delivery(operation_id, "delivery_outcome_unknown")
+                await self._store("finish_delivery", operation_id, "delivery_outcome_unknown")
                 self._unknown_reconciled.add(operation_id)
             else:
-                self.store.finish_delivery(operation_id, "queued", queue_id)
+                await self._store("finish_delivery", operation_id, "queued", queue_id)
 
     async def _work(self) -> None:
         cycle = 0
@@ -266,7 +287,7 @@ class ClientService:
                 self.last_transport_error = "broker_unavailable_or_invalid_response"
             await self.deliver_ready()
             if cycle % 60 == 0:
-                self.store.prune()
+                await self._store("prune")
             cycle += 1
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self.wake.wait(), 1)
@@ -283,7 +304,7 @@ class ClientService:
                         # events will replay, including changes during recovery.
                         await self.recover()
                         if type(resume_after) is int and resume_after >= 0:
-                            self.store.advance(resume_after)
+                            await self._store("advance", resume_after)
                     else:
                         response.raise_for_status()
                         event_id: int | None = None
@@ -299,20 +320,20 @@ class ClientService:
                                     if event_id is None:
                                         raise ValueError("SSE operation requires a durable cursor")
                                     if event_id > self.store.cursor:
-                                        self.ingest(json.loads("\n".join(data)), event_id)
+                                        await self.ingest(json.loads("\n".join(data)), event_id)
                                 event_id, event_type, data, size = None, "message", [], 0
                             elif line.startswith("id:"):
                                 event_id = int(line[3:].strip())
                             elif line.startswith("event:"):
                                 event_type = line[6:].strip()
                             elif line.startswith("data:"):
-                                data.append(line[5:].lstrip(" "))
+                                data.append(line[6:] if line[5:6] == " " else line[5:])
             except (httpx.HTTPError, ValueError):
                 self.last_transport_error = "events_disconnected_get_recovery_available"
             await asyncio.sleep(1)
 
     async def submit(
-        self, origin: NativeOrigin, prompt: str, artifact_ids: list[str], wait: float | None
+        self, origin: NativeOrigin, prompt: str, artifact_ids: list[str], wait: float | None, model: str | None = None
     ) -> dict[str, Any]:
         seconds = self.settings.inline_wait_seconds if wait is None else wait
         self._validate_wait(seconds, field="wait_seconds")
@@ -329,12 +350,12 @@ class ClientService:
             raise ClientValidationError(
                 "invalid_artifact_ids", "Each artifact_id must be a UUID.", "artifact_ids"
             ) from exc
-        operation_id = self.store.create(origin, prompt, artifact_ids, seconds)
+        operation_id = await self._store("create", origin, prompt, artifact_ids, seconds, model)
         self.wake.set()
         try:
             return await self.wait(origin, operation_id, seconds, refresh=False)
         finally:
-            self.store.release_inline(operation_id)
+            await self._store("release_inline", operation_id)
             self.wake.set()
 
     @staticmethod
@@ -344,10 +365,10 @@ class ClientService:
 
     async def get(self, origin: NativeOrigin, operation_id: str) -> dict[str, Any]:
         native_uuid(operation_id, "operation_id")
-        self.store.row(operation_id, origin)
+        await self._store("row", operation_id, origin)
         with contextlib.suppress(httpx.HTTPError, ValueError):
             await self.refresh(operation_id)
-        return self.store.view(operation_id, origin, consume=True)
+        return await self._store("view", operation_id, origin, consume=True)
 
     async def wait(
         self,
@@ -359,16 +380,16 @@ class ClientService:
     ) -> dict[str, Any]:
         self._validate_wait(seconds)
         native_uuid(operation_id, "operation_id")
-        self.store.row(operation_id, origin)
+        await self._store("row", operation_id, origin)
         deadline = asyncio.get_running_loop().time() + seconds
         while True:
             self.changed.clear()
-            result = self.store.view(operation_id, origin)
+            result = await self._store("view", operation_id, origin)
             if result.get("result_id") or result["submission_state"] in {"rejected", "payload_key_unavailable"}:
-                return self.store.view(operation_id, origin, consume=True)
+                return await self._store("view", operation_id, origin, consume=True)
             remaining = deadline - asyncio.get_running_loop().time()
             if remaining <= 0:
-                return self.store.view(operation_id, origin, consume=True)
+                return await self._store("view", operation_id, origin, consume=True)
             if refresh:
                 # Background recovery handles network work, keeping the tool wait bounded.
                 self.wake.set()
@@ -377,18 +398,21 @@ class ClientService:
 
     async def cancel(self, origin: NativeOrigin, operation_id: str) -> dict[str, Any]:
         native_uuid(operation_id, "operation_id")
-        row = self.store.row(operation_id, origin)
+        row = await self._store("row", operation_id, origin)
         if row["cancel_state"] is None:
-            self.store.cancel_state(operation_id, "sending")
+            await self._store("cancel_state", operation_id, "sending")
             try:
                 response = await self.broker.post(f"/v1/operations/{operation_id}/cancel")
                 response.raise_for_status()
-                self.ingest(response.json(), expected_id=operation_id)
+                await self.ingest(response.json(), expected_id=operation_id)
             except (httpx.HTTPError, ValueError):
-                self.store.cancel_state(operation_id, "outcome_unknown")
+                await self._store("cancel_state", operation_id, "outcome_unknown")
             else:
-                self.store.cancel_state(operation_id, "requested")
-        return {**self.store.view(operation_id, origin), "cancellation_note": "Best effort; computation may continue."}
+                await self._store("cancel_state", operation_id, "requested")
+        return {
+            **await self._store("view", operation_id, origin),
+            "cancellation_note": "Best effort; computation may continue.",
+        }
 
     async def upload(self, data: bytes, content_type: str) -> dict[str, Any]:
         if not 0 < len(data) <= self.settings.max_upload_bytes:
@@ -418,8 +442,11 @@ class ClientService:
     def health(self) -> dict[str, Any]:
         return {
             "ok": True,
+            "harness_identity_version": 1,
+            "sender_context_version": 1,
             "native_delivery": self.native_status,
             "event_cursor": self.store.cursor,
+            "receipt_errors": len(self.receipt_errors),
             "transport_error": self.last_transport_error,
             "explicit_pull_available": True,
             "connection": self.transport.health() if self.transport else {"mode": "injected_test_transport"},
@@ -475,14 +502,24 @@ def create_client_app(service: ClientService, *, manage_lifecycle: bool = True) 
             payload = json.loads(body)
             if not isinstance(payload, dict):
                 raise ClientValidationError("invalid_request", "Request must be a JSON object.", "request")
-            origin = NativeOrigin.from_meta(payload.get("meta"))
+            origin = NativeOrigin.from_meta(payload.get("meta"), payload.get("identity"))
             args = payload.get("arguments", {})
             action = payload.get("action")
+            if isinstance(action, str) and action.startswith("harness_v1/"):
+                action = action.removeprefix("harness_v1/")
+            if action in {"get", "wait", "cancel"} and (not isinstance(args, dict) or "operation_id" not in args):
+                raise ClientValidationError("missing_argument", "operation_id is required.", "operation_id")
+            if action == "upload" and (not isinstance(args, dict) or not {"data", "content_type"} <= set(args)):
+                raise ClientValidationError("missing_argument", "data and content_type are required.", "upload")
             if not isinstance(args, dict):
                 raise ClientValidationError("invalid_arguments", "arguments must be a JSON object.", "arguments")
             if action == "submit":
                 result = await service.submit(
-                    origin, args.get("prompt", ""), args.get("artifact_ids", []), args.get("wait_seconds")
+                    origin,
+                    args.get("prompt", ""),
+                    args.get("artifact_ids", []),
+                    args.get("wait_seconds"),
+                    args.get("model"),
                 )
             elif action == "resolve_call":
                 result = service.store.resolve_call(origin)

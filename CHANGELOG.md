@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.9.0 — 2026-10-12
+
+- Offload serialized SQLite FULL writes from the event loop; idempotent close and passive checkpoint.
+- Filter completed operation recovery, isolate bad receipt retries, and probe PostgreSQL liveness.
+- Supervise dispatcher failure with nonzero exit, preserve ambiguity, back off failed exact reads.
+- Batch housekeeping, add partial indexes, persist unchanged handles once per active stream.
+- Accumulate streamed binary/text chunks without repeatedly copying and serializing the prefix.
+- Validate peer RPC origin, CA startup, empty SSE cursor and canonical digest case; generalize release versions.
+- Ship a strict newer-receiver sender overlay and data-preserving install/upgrade/rollback guide.
+
+- Propagate descriptive harness/model/A2A labels per operation through encrypted client/broker storage and peer metadata.
+- Add pinned receiver persistence/event metadata and framed labels for Helen; model changes keep the same conversation.
+- Preserve missing legacy descriptors and idempotency hashes; no model-based authentication or capability registry.
+
+- Isolate local flows, exact calls and operation access by trusted harness/instance/conversation.
+- Preserve default Codex IDs and storage; restrict native queue delivery to that verified namespace.
+- Require trusted generic host metadata for other adapters; no guessed identities or owner lookup.
+
 ## 0.8.0 — 2026-09-21
 
 - Promote the verified candidate runtime; retain the same Hermes patch and protocol.

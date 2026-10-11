@@ -15,6 +15,7 @@ from .a2a import A2AClient
 from .broker_store import BrokerError, canonical
 from .diagnostics import peer_capabilities
 from .models import A2ATaskResult
+from .sender_context import SenderContext
 from .settings import Settings
 
 # Namespace and device both matter: equal flow IDs on distinct devices do not
@@ -39,6 +40,8 @@ class HermesBrokerPeer:
     async def submit(self, claim: dict[str, Any], timeout: float) -> AsyncGenerator[A2ATaskResult, None]:
         context = peer_context(claim["device_id"], claim["flow_id"])
         message = self.client._message(claim["prompt"], context, claim["operation_id"])
+        if claim.get("sender_context") is not None:
+            message["metadata"] = {"sender_context": SenderContext.model_validate(claim["sender_context"]).model_dump()}
         # Hermes does not consistently consume raw file parts. Only UTF-8
         # text/plain operation inputs pass ledger validation; supply them as text
         # with explicit untrusted-reference framing, never tool/system instructions.
@@ -59,6 +62,8 @@ class HermesBrokerPeer:
                 }
             )
         artifacts: dict[str, dict[str, Any]] = {}
+        buffers: dict[str, list[tuple[dict[str, Any], str, list[Any]]]] = {}
+        charges: dict[str, int] = {}
         handle: str | None = None
         async with aclosing(
             cast(
@@ -77,44 +82,63 @@ class HermesBrokerPeer:
                 handle = parsed.task_id
                 update = event.get("artifactUpdate")
                 if isinstance(event.get("task"), dict) and parsed.artifacts:
-                    artifacts = {}
+                    artifacts.clear()
+                    buffers.clear()
+                    charges.clear()
                 for index, artifact in enumerate(parsed.artifacts):
                     identity = str(artifact.get("artifactId") or f"part-{index}")
-                    if isinstance(update, dict) and update.get("append") and identity in artifacts:
-                        previous = artifacts[identity]
-                        parts = list(previous.get("parts", []))
-                        for part in artifact.get("parts", []):
-                            # Stream chunks continue the preceding same-kind part;
-                            # they are not new text paragraphs or separate files.
-                            if parts and isinstance(part, dict) and isinstance(parts[-1], dict):
-                                prior = parts[-1]
-                                if isinstance(prior.get("text"), str) and isinstance(part.get("text"), str):
-                                    parts[-1] = {**prior, **part, "text": prior["text"] + part["text"]}
-                                    continue
-                                if isinstance(prior.get("raw"), str) and isinstance(part.get("raw"), str):
-                                    if len(prior["raw"]) + len(part["raw"]) > self.max_snapshot_bytes:
-                                        raise BrokerError(
-                                            "result_too_large", "peer stream result exceeds configured limit", 502
-                                        )
-                                    try:
-                                        data = base64.b64decode(prior["raw"], validate=True) + base64.b64decode(
-                                            part["raw"],
-                                            validate=True,
-                                        )
-                                    except (ValueError, binascii.Error):
-                                        raise BrokerError(
-                                            "invalid_peer_artifact", "peer artifact has invalid encoding", 502
-                                        ) from None
-                                    parts[-1] = {**prior, **part, "raw": base64.b64encode(data).decode("ascii")}
-                                    continue
-                            parts.append(part)
-                        artifact = {**previous, **artifact, "parts": parts}
-                    artifacts[identity] = artifact
-                retained = list(artifacts.values())
+                    append = isinstance(update, dict) and update.get("append") and identity in artifacts
+                    charge = len(canonical(artifact))
+                    charges[identity] = charges.get(identity, 0) + charge if append else charge
+                    # Conservative encoded-content bound, without serializing the growing prefix.
+                    if sum(charges.values()) + len(parsed.text.encode()) > self.max_snapshot_bytes:
+                        raise BrokerError("result_too_large", "peer stream result exceeds configured limit", 502)
+                    previous = artifacts.get(identity, {}) if append else {}
+                    artifacts[identity] = {**previous, **{k: v for k, v in artifact.items() if k != "parts"}}
+                    parts = buffers.setdefault(identity, []) if append else []
+                    buffers[identity] = parts
+                    for part in artifact.get("parts", []):
+                        if not isinstance(part, dict):
+                            continue
+                        kind = (
+                            "text"
+                            if isinstance(part.get("text"), str)
+                            else "raw"
+                            if isinstance(part.get("raw"), str)
+                            else ""
+                        )
+                        value: Any = part.get(kind) if kind else None
+                        if kind == "raw":
+                            try:
+                                value = base64.b64decode(value, validate=True)
+                            except (ValueError, binascii.Error):
+                                raise BrokerError(
+                                    "invalid_peer_artifact", "peer artifact has invalid encoding", 502
+                                ) from None
+                        metadata = {k: v for k, v in part.items() if k != kind}
+                        if append and parts and kind and parts[-1][1] == kind:
+                            prior, _, chunks = parts[-1]
+                            prior.update(metadata)
+                            chunks.append(value)
+                        else:
+                            parts.append((metadata, kind, [value] if kind else []))
+                if parsed.state not in {"completed", "failed", "canceled", "rejected", "input_required"}:
+                    # The broker persists task identity on progress; content is needed only at terminal.
+                    yield parsed.model_copy(update={"artifacts": [], "text": ""})
+                    continue
+                retained = []
+                for identity, artifact in artifacts.items():
+                    rendered = []
+                    for metadata, kind, chunks in buffers[identity]:
+                        part = dict(metadata)
+                        if kind == "raw":
+                            part[kind] = base64.b64encode(b"".join(chunks)).decode("ascii")
+                        elif kind == "text":
+                            part[kind] = "".join(chunks)
+                        rendered.append(part)
+                    retained.append({**artifact, "parts": rendered})
                 if len(canonical({"artifacts": retained, "text": parsed.text})) > self.max_snapshot_bytes:
                     raise BrokerError("result_too_large", "peer stream result exceeds configured limit", 502)
-                # Artifact updates precede the final status-only event. Preserve
-                # their bounded content in the snapshot consumed by the dispatcher.
                 text = "\n".join(filter(None, (self.client._message_text(a) for a in retained))) or parsed.text
                 yield parsed.model_copy(update={"artifacts": retained, "text": text})
 

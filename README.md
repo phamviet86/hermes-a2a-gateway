@@ -8,10 +8,11 @@ Hermes A2A Gateway connects Codex Desktop to Hermes on a private server. The cli
 owns a durable local inbox and optional SSH tunnel; the broker owns a PostgreSQL
 ledger and dispatches work to the server's loopback Hermes A2A endpoint.
 
-**Release: v0.8.0.** Adds structured peer diagnostics and a versioned Hermes
-compatibility patch for long conversations with the same context. The authenticated
-gateway peer uses a five-submission rolling 60-second window instead of a lifetime
-turn cap. Other peers keep their existing policy. No automatic mutation retries.
+**Release: v0.9.0.** Adds three descriptive sender fields, trusted harness isolation
+and reliability fixes while preserving existing IDs, credentials and conversations.
+Antigravity defaults to `Gemini model`; explicit model labels keep the same flow.
+See [installation](docs/deployment.md), [upgrade/rollback](docs/upgrade-v0.9.md),
+[release notes](docs/release-notes.md) and [review findings](docs/review-2026-10-12.md).
 Package, command and MCP registration remain `hermes-a2a-gateway`.
 
 ```text
@@ -98,7 +99,7 @@ local repository files are not automatically synchronized.
   from package installation or simulated reconnect tests.
 
 See the [wire contract](docs/client-server-contract.md), [deployment reference](docs/deployment.md),
-[release notes](docs/release-notes.md), [v0.8 verification](docs/testing-report-v0.8.0.md),
+[release notes](docs/release-notes.md), [historical v0.8 verification](docs/testing-report-v0.8.0.md),
 and [historical evidence](docs/history/README.md).
 
 ## Development
@@ -123,3 +124,12 @@ and [SECURITY.md](SECURITY.md). Licensed under [Apache-2.0](LICENSE).
 ## Long conversations and actionable errors (0.8)
 
 See the [English AI operating guide](docs/ai-operations.md) and [versioned Hermes compatibility patch](docs/hermes-compatibility.md). The gateway wheel alone does not remove the receiver's legacy conversation limit. Verify the authenticated peer policy with `client-doctor`. Keep the same context, observe existing operations with get/wait, and never blindly resend ambiguous work.
+
+## Multi-harness adapters
+
+See [trusted multi-harness contract](docs/multi-harness.md) for operator-configured
+harness/instance isolation, required host metadata and explicit-pull delivery limits.
+
+[Sender labels](docs/sender-context.md) describe the calling harness and selected
+model per request, preserve conversation continuity, and require matching receiver
+support. They do not authenticate or verify model capabilities.

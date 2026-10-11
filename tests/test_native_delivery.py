@@ -86,6 +86,9 @@ for line in sys.stdin:
         result = {}
     elif method == "thread/queue/add":
         params = message["params"]
+        if mode == "rejected":
+            print(json.dumps({"id": message["id"], "error": {"code": -32602, "message": "invalid params"}}), flush=True)
+            continue
         with open(os.environ["FAKE_NATIVE_RECORD"], "a") as file:
             file.write(json.dumps(params) + "\n")
         if mode == "lost_ack":
@@ -175,3 +178,13 @@ async def test_native_subprocess_environment_strips_gateway_secrets(fake_codex, 
     native = NativeQueueDelivery(str(fake_codex))
     assert (await native.capability())["supported"]
     assert await native.enqueue(str(uuid4()), str(uuid4()), "safe reference") == "queue-123"
+
+
+async def test_clean_native_rpc_rejection_is_unsupported_not_unknown(fake_codex, tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_NATIVE_MODE", "rejected")
+    record = tmp_path / "record.jsonl"
+    monkeypatch.setenv("FAKE_NATIVE_RECORD", str(record))
+    native = NativeQueueDelivery(str(fake_codex))
+    with pytest.raises(NativeUnsupported):
+        await native.enqueue(str(uuid4()), str(uuid4()), "synthetic result reference")
+    assert not record.exists()

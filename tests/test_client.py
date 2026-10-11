@@ -228,7 +228,7 @@ async def test_inline_result_excludes_late_queue_even_at_deadline(settings):
     pending = asyncio.create_task(client.submit(native, "prompt", [], 0.05))
     await asyncio.sleep(0)
     op = client.store.ids()[0]
-    client.ingest(snapshot(client.store, op))
+    await client.ingest(snapshot(client.store, op))
     # The daemon cannot claim native delivery while the MCP consumer owns inline wait.
     with client.store.db:
         client.store.db.execute("UPDATE client_operations SET inline_deadline=0")
@@ -246,7 +246,7 @@ async def test_late_reference_queue_is_bound_and_exactly_claimed(settings):
     native = origin()
     result = await client.submit(native, "prompt", [], 0)
     op = result["operation_id"]
-    client.ingest(snapshot(client.store, op))
+    await client.ingest(snapshot(client.store, op))
     await client.deliver_ready()
     await client.deliver_ready()
     assert len(host.calls) == 1
@@ -267,7 +267,7 @@ async def test_lost_native_ack_restart_never_requeues(settings, match, expected)
     client = service(settings, host)
     native = origin()
     op = (await client.submit(native, "prompt", [], 0))["operation_id"]
-    client.ingest(snapshot(client.store, op))
+    await client.ingest(snapshot(client.store, op))
     await client.deliver_ready()
     assert client.store.row(op)["delivery_state"] == "delivery_outcome_unknown"
     await client.close()
@@ -286,7 +286,7 @@ async def test_crash_after_intent_preserves_unknown(settings):
     client = service(settings)
     native = origin()
     op = (await client.submit(native, "prompt", [], 0))["operation_id"]
-    client.ingest(snapshot(client.store, op))
+    await client.ingest(snapshot(client.store, op))
     assert client.store.claim_delivery(op)
     await client.close()
     host = Host()
@@ -303,7 +303,7 @@ async def test_unsupported_native_leaves_pull_and_wait_usable(settings):
     client.native_status = {"supported": False}
     native = origin()
     op = (await client.submit(native, "prompt", [], 0))["operation_id"]
-    client.ingest(snapshot(client.store, op))
+    await client.ingest(snapshot(client.store, op))
     await client.deliver_ready()
     assert client.store.row(op)["delivery_state"] == "unsupported"
     assert (await client.wait(native, op, 0))["delivery_state"] == "inline_returned"
@@ -400,17 +400,17 @@ async def test_unknown_exact_saved_handle_resolution_can_queue_once(settings):
     native = origin()
     op = (await client.submit(native, "p", [], 0))["operation_id"]
     unknown = snapshot(client.store, op, "outcome_unknown")
-    client.ingest(unknown)
+    await client.ingest(unknown)
     assert (await client.get(native, op))["state"] == "outcome_unknown"
     await client.deliver_ready()
     assert not host.calls
     final = {**unknown, "state": "completed", "result": {"text": "recovered", "artifacts": []}}
-    client.ingest(final)
+    await client.ingest(final)
     assert not client.store.view(op, native)["snapshot_conflict"]
     assert client.store.view(op, native)["result"]["text"] == "recovered"
     await client.deliver_ready()
     assert len(host.calls) == 1
-    client.ingest(final, 99)
+    await client.ingest(final, 99)
     await client.deliver_ready()
     assert len(host.calls) == 1
     await client.close()
@@ -421,8 +421,8 @@ async def test_unknown_without_same_exact_handle_cannot_resolve(settings):
     native = origin()
     op = (await client.submit(native, "p", [], 0))["operation_id"]
     unknown = {**snapshot(client.store, op, "outcome_unknown"), "remote_task_id": None}
-    client.ingest(unknown)
-    client.ingest({**unknown, "state": "completed", "remote_task_id": "guessed", "result": {"text": "unsafe"}})
+    await client.ingest(unknown)
+    await client.ingest({**unknown, "state": "completed", "remote_task_id": "guessed", "result": {"text": "unsafe"}})
     result = client.store.view(op, native)
     assert result["state"] == "outcome_unknown"
     assert result["snapshot_conflict"]
@@ -499,3 +499,113 @@ async def test_doctor_reads_policy_without_submitting(settings):
     finally:
         await service.broker.aclose()
         service.store.close()
+
+
+def test_close_does_not_close_reused_descriptor(settings):
+    import os
+
+    store = ClientStore(settings)
+    fd = store.lock_fd
+    store.close()
+    with open(os.devnull) as replacement:
+        assert replacement.fileno() == fd
+        store.close()
+        os.fstat(replacement.fileno())
+
+
+async def test_recovery_skips_final_but_reconciles_unknown(settings):
+    broker = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(404)))
+    client = ClientService(settings, broker=broker, delivery=Host(supported=False))
+    completed = client.store.create(origin(), "completed fixture", [], 0)
+    unknown = client.store.create(origin(), "unknown fixture", [], 0)
+    client.store.accept_snapshot(snapshot(client.store, completed))
+    client.store.accept_snapshot(snapshot(client.store, unknown, "outcome_unknown"))
+    reads = []
+
+    async def record(operation):
+        reads.append(operation)
+        return True
+
+    client.refresh = record
+    try:
+        await client.recover()
+        assert reads == [unknown]
+        assert completed in client.store.ids(deliverable=True)
+    finally:
+        await client.close()
+
+
+async def test_slow_durable_write_does_not_block_health(settings, monkeypatch):
+    import threading
+    import time
+
+    broker = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(404)))
+    client = ClientService(settings, broker=broker, delivery=Host(supported=False))
+    entered = threading.Event()
+    original = client.store.create
+
+    def slow(*args, **kwargs):
+        entered.set()
+        time.sleep(0.2)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(client.store, "create", slow)
+    task = asyncio.create_task(client.submit(origin(), "synthetic slow commit", [], 0))
+    try:
+        while not entered.is_set():
+            await asyncio.sleep(0.001)
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(create_client_app(client)), base_url="http://client"
+        ) as ipc:
+            response = await asyncio.wait_for(ipc.get("/healthz"), 0.1)
+            assert response.status_code == 200 and not task.done()
+        await task
+        assert client.store.db.execute("PRAGMA synchronous").fetchone()[0] == 2
+    finally:
+        await asyncio.gather(task, return_exceptions=True)
+        await client.close()
+
+
+async def test_bad_receipt_does_not_starve_later_receipts(settings):
+    calls = []
+    failed = None
+
+    def peer(request):
+        value = json.loads(request.content)
+        calls.append(value["operation_id"])
+        return httpx.Response(404 if value["operation_id"] == failed else 200, json={"ok": True})
+
+    broker = httpx.AsyncClient(transport=httpx.MockTransport(peer), base_url="https://broker.test")
+    client = ClientService(settings, broker=broker, delivery=Host(supported=False))
+    failed = client.store.create(origin(), "receipt failure", [], 0)
+    later = client.store.create(origin(), "later receipt", [], 0)
+    client.store.accept_snapshot(snapshot(client.store, failed))
+    client.store.accept_snapshot(snapshot(client.store, later))
+    try:
+        await client.flush_receipts()
+        assert calls == [failed, later]
+        assert [x["operation_id"] for x in client.store.receipts()] == [failed]
+        assert client.health()["receipt_errors"] == 1
+        await client.flush_receipts()
+        assert calls == [failed, later]
+    finally:
+        await client.close()
+
+
+async def test_missing_operation_argument_is_bad_request(settings):
+    broker = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(404)))
+    client = ClientService(settings, broker=broker, delivery=Host(supported=False))
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(create_client_app(client)), base_url="http://client"
+        ) as ipc:
+            response = await ipc.post("/command", json={"action": "get", "meta": meta(origin()), "arguments": {}})
+            assert response.status_code == 400 and response.json()["error"]["code"] == "missing_argument"
+    finally:
+        await client.close()
+
+
+def test_missing_ca_is_rejected_before_client_state_creation(settings):
+    with pytest.raises(ValueError, match="CA_FILE"):
+        replace(settings, ca_file=str(settings.state_dir / "not-a-certificate"))
+    assert not settings.state_dir.exists()

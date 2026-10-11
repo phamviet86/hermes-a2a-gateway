@@ -8,15 +8,19 @@ import json
 import os
 import sqlite3
 import stat
+import threading
 import time
+from collections.abc import Callable
+from functools import wraps
 from pathlib import Path
-from typing import Any
+from typing import Any, ParamSpec, TypeVar
 from uuid import uuid4
 
 from cryptography.fernet import Fernet
 
 from .client_settings import ClientSettings
 from .native_delivery import NativeOrigin, native_uuid
+from .sender_context import sender_context
 
 TERMINAL = frozenset({"completed", "failed", "canceled", "outcome_unknown"})
 FINAL = TERMINAL - {"outcome_unknown"}
@@ -35,8 +39,23 @@ def private_directory(path: Path) -> None:
     path.chmod(0o700)
 
 
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+def locked(method: Callable[P, T]) -> Callable[P, T]:
+    @wraps(method)
+    def serialized(*args: P.args, **kwargs: P.kwargs) -> T:
+        owner: Any = args[0]
+        with owner._mutex:
+            return method(*args, **kwargs)
+
+    return serialized
+
+
 class ClientStore:
     def __init__(self, settings: ClientSettings) -> None:
+        self._mutex = threading.RLock()
         self.settings = settings
         private_directory(settings.state_dir)
         self.lock_fd = os.open(settings.state_dir / "writer.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
@@ -53,7 +72,7 @@ class ClientStore:
         fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
         os.fchmod(fd, 0o600)
         os.close(fd)
-        self.db = sqlite3.connect(path)
+        self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA synchronous=FULL")
@@ -71,10 +90,18 @@ class ClientStore:
             CREATE TABLE IF NOT EXISTS client_cursor(
               singleton INTEGER PRIMARY KEY CHECK(singleton=1), seq INTEGER NOT NULL);
             INSERT OR IGNORE INTO client_cursor VALUES(1,0);
+            CREATE INDEX IF NOT EXISTS client_v09_pending ON client_operations(operation_id)
+              WHERE expired=0 AND submission_state='pending';
+            CREATE INDEX IF NOT EXISTS client_v09_delivery ON client_operations(delivery_state)
+              WHERE expired=0;
             CREATE TABLE IF NOT EXISTS client_receipts(
               operation_id TEXT NOT NULL, result_id TEXT NOT NULL, status TEXT NOT NULL,
               sent INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(operation_id,result_id,status));
+            CREATE INDEX IF NOT EXISTS client_v09_unsent ON client_receipts(sent) WHERE sent=0;
         """)
+        if "sender_context" not in {row[1] for row in self.db.execute("PRAGMA table_info(client_operations)")}:
+            self.db.execute("ALTER TABLE client_operations ADD COLUMN sender_context BLOB")
+            self.db.commit()
         with self.db:
             self.db.execute(
                 "UPDATE client_operations SET delivery_state='delivery_outcome_unknown' "
@@ -91,48 +118,64 @@ class ClientStore:
                 "FROM client_operations WHERE delivery_state='delivery_outcome_unknown' "
                 "AND json_extract(snapshot,'$.result_id') IS NOT NULL"
             )
+        self._cursor = int(self.db.execute("SELECT seq FROM client_cursor WHERE singleton=1").fetchone()[0])
         for suffix in ("-wal", "-shm"):
             sidecar = Path(str(path) + suffix)
             if sidecar.exists():
                 sidecar.chmod(0o600)
 
+    @locked
     def close_lock(self) -> None:
-        fcntl.flock(self.lock_fd, fcntl.LOCK_UN)
-        os.close(self.lock_fd)
+        if self.lock_fd >= 0:
+            fd, self.lock_fd = self.lock_fd, -1
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
 
+    @locked
     def close(self) -> None:
-        self.db.close()
-        self.close_lock()
+        if self.lock_fd >= 0:
+            self.db.close()
+            self.close_lock()
 
+    @locked
     def row(self, operation_id: str, origin: NativeOrigin | None = None) -> dict[str, Any]:
         row = self.db.execute("SELECT * FROM client_operations WHERE operation_id=?", (operation_id,)).fetchone()
-        if row is None or (origin is not None and row["thread_id"] != origin.thread_id):
+        if row is None or (origin is not None and row["thread_id"] != origin.storage_thread_id):
             raise KeyError("operation is not bound to this native thread")
         return dict(row)
 
+    @locked
     def resolve_call(self, origin: NativeOrigin) -> dict[str, Any]:
         """Recover a lost local submit ACK by exact host call identity, never inference."""
         row = self.db.execute(
             "SELECT operation_id FROM client_operations WHERE thread_id=? AND turn_id=? AND call_id=?",
-            (origin.thread_id, origin.turn_id, origin.call_id),
+            (origin.storage_thread_id, origin.turn_id, origin.call_id),
         ).fetchone()
         if row is None:
             raise KeyError("no durable operation for this exact native tool call")
         return self.view(row["operation_id"], origin)
 
-    def create(self, origin: NativeOrigin, prompt: str, artifact_ids: list[str], wait: float) -> str:
+    @locked
+    def create(
+        self, origin: NativeOrigin, prompt: str, artifact_ids: list[str], wait: float, model: str | None = None
+    ) -> str:
         if not prompt.strip() or len(prompt.encode()) > 256 * 1024:
             raise ValueError("prompt must contain 1..262144 UTF-8 bytes")
         if len(artifact_ids) > 32:
             raise ValueError("at most 32 artifacts are permitted")
         for artifact in artifact_ids:
             native_uuid(artifact, "artifact_id")
-        digest = hashlib.sha256(canonical({"prompt": prompt, "artifact_ids": artifact_ids}).encode()).hexdigest()
+        descriptor = sender_context(origin.harness, model)
+        command = {"prompt": prompt, "artifact_ids": artifact_ids}
+        digest = hashlib.sha256(canonical({**command, "sender_context": descriptor}).encode()).hexdigest()
         existing = self.db.execute(
-            "SELECT operation_id,digest FROM client_operations WHERE thread_id=? AND turn_id=? AND call_id=?",
-            (origin.thread_id, origin.turn_id, origin.call_id),
+            "SELECT operation_id,digest,sender_context FROM client_operations "
+            "WHERE thread_id=? AND turn_id=? AND call_id=?",
+            (origin.storage_thread_id, origin.turn_id, origin.call_id),
         ).fetchone()
         if existing:
+            if existing["sender_context"] is None and existing["digest"] != digest:
+                digest = hashlib.sha256(canonical(command).encode()).hexdigest()
             if existing["digest"] != digest:
                 raise ValueError("native tool call identity was reused with a different command")
             return str(existing["operation_id"])
@@ -145,9 +188,9 @@ class ClientStore:
         now = time.time()
         operation_id = str(uuid4())
         with self.db:
-            self.db.execute("INSERT OR IGNORE INTO client_flows VALUES(?,?)", (origin.thread_id, str(uuid4())))
+            self.db.execute("INSERT OR IGNORE INTO client_flows VALUES(?,?)", (origin.storage_thread_id, str(uuid4())))
             flow_id = self.db.execute(
-                "SELECT flow_id FROM client_flows WHERE thread_id=?", (origin.thread_id,)
+                "SELECT flow_id FROM client_flows WHERE thread_id=?", (origin.storage_thread_id,)
             ).fetchone()[0]
             payload = self.cipher.encrypt(
                 canonical(
@@ -156,17 +199,19 @@ class ClientStore:
                         "flow_id": flow_id,
                         "prompt": prompt,
                         "artifact_ids": artifact_ids,
+                        "sender_context": descriptor,
                     }
                 ).encode()
             )
             self.db.execute(
                 "INSERT INTO client_operations(operation_id,flow_id,thread_id,turn_id,call_id,digest,payload,"
-                "payload_expires,submission_state,delivery_state,inline_deadline,created,updated,expires) "
-                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "payload_expires,submission_state,delivery_state,inline_deadline,created,updated,expires,"
+                "sender_context) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     operation_id,
                     flow_id,
-                    origin.thread_id,
+                    origin.storage_thread_id,
                     origin.turn_id,
                     origin.call_id,
                     digest,
@@ -178,32 +223,46 @@ class ClientStore:
                     now,
                     now,
                     now + self.settings.retention_seconds,
+                    self.cipher.encrypt(canonical(descriptor).encode()),
                 ),
             )
         return operation_id
 
+    @locked
     def payload(self, operation_id: str) -> dict[str, Any] | None:
         row = self.row(operation_id)
         if row["payload"] is None or row["payload_expires"] <= time.time():
             return None
         return dict(json.loads(self.cipher.decrypt(row["payload"])))
 
-    def ids(self, *, pending: bool = False) -> list[str]:
+    @locked
+    def ids(self, *, pending: bool = False, active: bool = False, deliverable: bool = False) -> list[str]:
         query = "SELECT operation_id FROM client_operations WHERE expired=0"
         if pending:
             query += " AND submission_state='pending'"
+        if active:
+            query += (
+                " AND (snapshot IS NULL OR json_extract(snapshot, '$.state') NOT IN ('completed','failed','canceled'))"
+            )
+        if deliverable:
+            query += (
+                " AND snapshot IS NOT NULL AND delivery_state IN ('ready','inline_pending','delivery_outcome_unknown')"
+            )
         return [row[0] for row in self.db.execute(query)]
 
     @property
     def cursor(self) -> int:
-        return int(self.db.execute("SELECT seq FROM client_cursor WHERE singleton=1").fetchone()[0])
+        return self._cursor
 
+    @locked
     def advance(self, seq: int) -> None:
         if type(seq) is not int or seq < 0:
             raise ValueError("invalid event cursor")
         with self.db:
             self.db.execute("UPDATE client_cursor SET seq=max(seq,?) WHERE singleton=1", (seq,))
+        self._cursor = max(self._cursor, seq)
 
+    @locked
     def accept_snapshot(self, snapshot: dict[str, Any], seq: int | None = None) -> None:
         operation_id = native_uuid(snapshot.get("operation_id"), "operation_id")
         flow_id = native_uuid(snapshot.get("flow_id"), "flow_id")
@@ -251,10 +310,14 @@ class ClientStore:
                         self._receipt(operation_id, snapshot["result_id"], "stored")
             if seq is not None:
                 self.db.execute("UPDATE client_cursor SET seq=max(seq,?) WHERE singleton=1", (seq,))
+        if seq is not None:
+            self._cursor = max(self._cursor, seq)
 
+    @locked
     def _receipt(self, operation_id: str, result_id: str, status: str) -> None:
         self.db.execute("INSERT OR IGNORE INTO client_receipts VALUES(?,?,?,0)", (operation_id, result_id, status))
 
+    @locked
     def view(self, operation_id: str, origin: NativeOrigin, *, consume: bool = False) -> dict[str, Any]:
         row = self.row(operation_id, origin)
         snapshot = (
@@ -291,6 +354,7 @@ class ClientStore:
             "delivery_note": "Queue acceptance and tool return do not prove native consumption. Use gateway_get/wait.",
         }
 
+    @locked
     def release_inline(self, operation_id: str) -> None:
         with self.db:
             self.db.execute(
@@ -299,6 +363,7 @@ class ClientStore:
                 (operation_id,),
             )
 
+    @locked
     def claim_delivery(self, operation_id: str) -> dict[str, Any] | None:
         row = self.row(operation_id)
         if row["expired"] or row["delivery_state"] != "ready":
@@ -316,6 +381,7 @@ class ClientStore:
             )
         return {**row, "delivery_id": delivery_id, "snapshot": snapshot}
 
+    @locked
     def finish_delivery(self, operation_id: str, status: str, queue_id: str | None = None) -> None:
         with self.db:
             self.db.execute(
@@ -327,19 +393,23 @@ class ClientStore:
                 snapshot = json.loads(row["snapshot"])
                 self._receipt(operation_id, snapshot["result_id"], status)
 
+    @locked
     def mark_submission(self, operation_id: str, state: str) -> None:
         with self.db:
             self.db.execute(
                 "UPDATE client_operations SET submission_state=? WHERE operation_id=?", (state, operation_id)
             )
 
+    @locked
     def cancel_state(self, operation_id: str, state: str) -> None:
         with self.db:
             self.db.execute("UPDATE client_operations SET cancel_state=? WHERE operation_id=?", (state, operation_id))
 
+    @locked
     def receipts(self) -> list[dict[str, Any]]:
         return [dict(row) for row in self.db.execute("SELECT * FROM client_receipts WHERE sent=0")]
 
+    @locked
     def receipt_sent(self, receipt: dict[str, Any]) -> None:
         with self.db:
             self.db.execute(
@@ -347,6 +417,7 @@ class ClientStore:
                 (receipt["operation_id"], receipt["result_id"], receipt["status"]),
             )
 
+    @locked
     def prune(self) -> None:
         now = time.time()
         with self.db:
@@ -361,7 +432,8 @@ class ClientStore:
                 snapshot["result"] = None
                 snapshot["error"] = None
                 self.db.execute(
-                    "UPDATE client_operations SET snapshot=?,expired=1,payload=NULL WHERE operation_id=?",
+                    "UPDATE client_operations SET snapshot=?,expired=1,payload=NULL,sender_context=NULL "
+                    "WHERE operation_id=?",
                     (canonical(snapshot), row["operation_id"]),
                 )
-        self.db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        self.db.execute("PRAGMA wal_checkpoint(PASSIVE)")

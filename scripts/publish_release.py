@@ -27,6 +27,8 @@ ASSETS = [
     f"hermes_a2a_gateway-{VERSION}.tar.gz",
     "hermes-a2a-compat.patch",
     "hermes-a2a-compat.json",
+    "hermes-a2a-sender-722bced.patch",
+    "hermes-a2a-sender-722bced.json",
     "hermes_patch.py",
     "SHA256SUMS",
 ]
@@ -143,7 +145,7 @@ def main() -> None:
             f"{prefix}/git/tags",
             {
                 "tag": TAG,
-                "message": f"{TAG} Hermes durable conversations and diagnostics",
+                "message": f"{TAG} Hermes sender labels and harness isolation",
                 "object": sha,
                 "type": "commit",
             },
@@ -158,9 +160,9 @@ def main() -> None:
             TAG,
             "--verify-tag",
             "--draft",
-            "--prerelease",
+            f"--prerelease={str(PRERELEASE).lower()}",
             "--title",
-            f"{TAG} — Hermes durable conversations and diagnostics",
+            f"{TAG} — Hermes sender labels and harness isolation",
             "--notes-file",
             "docs/release-notes.md",
         )

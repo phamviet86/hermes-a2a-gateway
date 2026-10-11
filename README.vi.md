@@ -2,9 +2,11 @@
 
 [English](README.md) | **Tiếng Việt**
 
-**Bản phát hành v0.8.0** kết nối Codex Desktop với Hermes trên server riêng,
+**Bản phát hành v0.9.0** kết nối Codex Desktop với Hermes trên server riêng,
 qua MCP, daemon/inbox local và broker PostgreSQL. Client hỗ trợ HTTPS trực tiếp
 qua LAN/VPN hoặc HTTPS bên trong SSH tunnel do daemon quản lý.
+
+Bản 0.9 thêm ba trường sender, cách ly harness và sửa lỗi vận hành; đổi nhãn model giữ cùng cuộc trò chuyện. Xem [nâng cấp/rollback](docs/upgrade-v0.9.md).
 
 Tên package, lệnh và đăng ký MCP thống nhất **`hermes-a2a-gateway`**. Namespace
 Python là `hermes_a2a_gateway`, biến môi trường dùng `HERMES_A2A_GATEWAY_*`.
@@ -77,7 +79,7 @@ việc cài package thành công. Xem [hợp đồng](docs/client-server-contrac
 Nous Research. Codex Desktop là tích hợp đầu tiên; chưa có adapter cho mọi AI agent
 hay API cho Hermes tự tạo task Desktop.
 
-Xem [bằng chứng kiểm thử và triển khai v0.8](docs/testing-report-v0.8.0.md).
+Xem [nâng cấp và rollback v0.9](docs/upgrade-v0.9.md) và [bằng chứng v0.8 trước đây](docs/testing-report-v0.8.0.md).
 
 ## Hội thoại dài và thông báo lỗi trong v0.8
 
@@ -92,3 +94,12 @@ một lần; đọc operation đã gửi bằng `gateway_get` hoặc `gateway_wa
 Hỏi Helen tiến độ của task chuyên gia là một yêu cầu mới và vẫn tính vào giới hạn.
 Khi bị giới hạn, đọc `error.details.retry_at`; không tự gửi lại hoặc đổi context
 để né bảo vệ. Kết quả chưa rõ phải được đối chiếu theo operation cũ.
+
+## Multi-harness adapters
+
+See [trusted multi-harness contract](docs/multi-harness.md) for operator-configured
+harness/instance isolation, required host metadata and explicit-pull delivery limits.
+
+[Sender labels](docs/sender-context.md) describe the calling harness and selected
+model per request, preserve conversation continuity, and require matching receiver
+support. They do not authenticate or verify model capabilities.

@@ -1,31 +1,36 @@
-# v0.8.0 — Durable conversations and actionable peer diagnostics
+# v0.9.0 — Sender labels, harness isolation and reliability fixes
 
-This release preserves rejection reasons through the broker and MCP using bounded,
-validated details encrypted in broker storage. Local SQLite snapshots retain their
-existing private-file and retention model. Existing error codes and the five MCP tools remain.
-The doctor reports whether the actual broker credential selects the patched Hermes policy.
+Every new gateway operation carries exactly `harness`, `model` and `connection=a2a`.
+The descriptor is descriptive data, never authentication or a capability registry.
+Antigravity defaults to `Gemini model`; an explicit model label overrides the
+family default without changing the trusted harness, flow or Hermes context.
+Default Codex IDs, legacy missing descriptors, keys and idempotency hashes survive.
+Other harnesses require trusted host turn metadata and use explicit result pull.
 
-A versioned compatibility patch targets Hermes commit
-`490e6b5966de330285905f52ebaee23c842dc3ea`. It replaces the lifetime conversation
-turn cap only for a configured authenticated gateway credential with five accepted
-submissions per rolling 60 seconds, per peer/agent/context. Other peers retain
-legacy protection. Rejected requests do not prolong the window. This is rate
-protection, not causal-loop detection, and never grants additional tool permissions.
+The release also stops polling completed operations, moves serialized SQLite I/O
+(including FULL durable commits) off the event loop, makes close idempotent, adds
+partial indexes and read-reconciliation backoff, batches retention housekeeping,
+avoids repeated task-handle transactions and quadratic artifact prefix copying,
+keeps later receipts progressing after an individual rejection, probes database
+liveness and exits a failed dispatcher for supervised restart. Ambiguous work is
+never automatically resubmitted or declared failed merely because its handle is missing.
 
-Download the wheel, source, compatibility patch, manifest, installer and SHA256SUMS
-from this release. Follow [deployment](deployment.md) and
-[compatibility upgrade/rollback](hermes-compatibility.md). Preserve ledgers, keys,
-context/session identities and receipts. No operation is automatically resubmitted.
-Read the [English AI operating guide](ai-operations.md) before delegating work.
+Download the wheel, source, both compatibility variants, utility and checksums
+from this release. [Fresh installation](deployment.md),
+[0.8 → 0.9 upgrade and rollback](upgrade-v0.9.md),
+[review of 38 external findings](review-2026-10-12.md),
+[sender contract](sender-context.md), [harness contract](multi-harness.md),
+[candidate verification](testing-report-v0.9.0.md).
 
-The published candidate passed installed Mac/VPS acceptance: four simultaneous
-Desktop tasks with correct native result consumption, a real pre-execution 5/60
-rejection followed by authorized same-context recovery, and 25 public-fiction
-exchanges with final recall in a context that completed 50 exchanges overall.
-The earlier memory-framed test elicited privacy refusals; that evidence is retained,
-not counted as successful recall. Permissions and memory policies were unchanged.
-See the [dated verification report](testing-report-v0.8.0.md) for results and limits.
+The default receiver patch remains pinned to Hermes `490e6b5`. A separate narrow
+sender overlay targets **only the exact already-patched hashes** at `722bced`;
+it is not a generic pristine-upstream patch. Both fail closed on mismatches.
+No Hermes venv, provider credentials, business records or existing session IDs
+are replaced by installing a gateway wheel.
 
-Stable promotion changes the version and documentation only; the tested runtime
-and Hermes compatibility patch are otherwise unchanged. Install the stable assets
-on both hosts and run doctor plus a harmless application smoke test.
+Live acceptance on the pre-release candidate observed Codex native MCP labels,
+Antigravity family default and explicit Claude label with same-context synthetic
+recall, and isolated Claude/Gemini contexts/results. The non-Codex requests used a
+controlled host adapter, not the native applications. A model label override does
+not itself switch the caller's actual model. See the dated deployment evidence for
+final released-asset checks; historical passes alone do not prove final installation.

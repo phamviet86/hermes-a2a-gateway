@@ -45,7 +45,12 @@ def members(path: Path) -> list[str]:
 def unsafe(name: str) -> bool:
     parts = {part.lower() for part in Path(name).parts}
     leaf = Path(name).name.lower()
-    return bool(parts & FORBIDDEN_PARTS or leaf in FORBIDDEN_NAMES or Path(leaf).suffix in FORBIDDEN_SUFFIXES)
+    return bool(
+        parts & FORBIDDEN_PARTS
+        or leaf in FORBIDDEN_NAMES
+        or Path(leaf).suffix in FORBIDDEN_SUFFIXES
+        or leaf.startswith("worker-context-")
+    )
 
 
 def main() -> int:

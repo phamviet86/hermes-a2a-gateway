@@ -1,6 +1,6 @@
 # Hermes compatibility for long conversations
 
-Gateway 0.8 ships a narrow, optional-to-install but required-for-long-conversations
+Gateway 0.9 ships a narrow, optional-to-install but required-for-long-conversations
 patch for Hermes commit `490e6b5966de330285905f52ebaee23c842dc3ea`.
 Installing the gateway wheel alone does not change Hermes's conversation policy.
 The patch is an integration maintained by this repository, not an upstream Hermes
@@ -76,3 +76,11 @@ Keep backups private and record exact versions and checksums. A future Hermes
 upgrade requires a newly verified patch or equivalent upstream implementation.
 
 Local client snapshots keep the existing SQLite result model: restrictive file permissions and retention, not new at-rest snapshot encryption. Broker diagnostic details are encrypted; local snapshots contain only the bounded allowlisted fields, never a newly copied raw peer rejection message.
+
+## Sender overlay on the tested newer receiver
+
+The separate `hermes-a2a-sender-722bced.json/.patch` assets apply only to the exact
+already-patched baseline at Hermes `722bcedb382ef632aeb262b80bcfbff5a902494b`.
+They preserve the existing policy and unrelated modifications. See
+[ordered upgrade and rollback](upgrade-v0.9.md). The default patch still targets
+`490e6b5`; neither variant permits a force apply or arbitrary revision.

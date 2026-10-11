@@ -28,6 +28,7 @@ from cryptography.fernet import Fernet
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
 from starlette.applications import Starlette
+from test_hermes_patch import patched, runtime  # noqa: F401
 
 from hermes_a2a_gateway.a2a import A2AClient
 from hermes_a2a_gateway.broker import BrokerDispatcher, create_broker_app
@@ -1091,3 +1092,248 @@ async def test_peer_policy_requires_auth_and_has_no_submission(ledger, broker_se
         response = await client.get("/v1/peer-policy", headers={"Authorization": f"Bearer {TOKEN_A}"})
         assert response.status_code == 200 and response.json()["policy"] == "sliding_window"
     assert peer.submissions == []
+
+
+async def test_sender_context_client_broker_receiver_roundtrip(ledger, tmp_path, request, monkeypatch):
+    from dataclasses import replace
+
+    from hermes_a2a_gateway.broker import OperationRequest
+    from hermes_a2a_gateway.client_settings import ClientSettings
+    from hermes_a2a_gateway.client_store import ClientStore
+    from hermes_a2a_gateway.native_delivery import NativeOrigin
+
+    receiver = request.getfixturevalue("runtime")
+    framed = []
+    receiver.adapter._forward_to_profile = lambda agent, peer, context, text: (
+        framed.append(text) or "safe result",
+        receiver.protocol.STATE_COMPLETED,
+    )
+    settings = ClientSettings(
+        broker_url="https://broker.invalid",
+        token="fixture",
+        payload_key=Fernet.generate_key().decode(),
+        state_dir=tmp_path / "client",
+    )
+    store = ClientStore(settings)
+    origin = NativeOrigin(str(uuid.uuid4()), str(uuid.uuid4()), "call", "antigravity")
+    peer = HermesBrokerPeer(A2AClient(Settings(endpoint="http://127.0.0.1:9900")))
+    messages = []
+
+    async def stream(method, params, **kwargs):
+        messages.append(params["message"])
+        result, _ = receiver.adapter._prepare_task(params, "native-peer", gateway_policy=True)
+        yield {"task": result}
+
+    monkeypatch.setattr(peer.client, "_sse", stream)
+    contexts = []
+    try:
+        for index, model in enumerate([None, "Claude model"]):
+            current = replace(origin, turn_id=str(uuid.uuid4()), call_id=str(index))
+            op = store.create(current, "fixture", [], 0, model)
+            wire = store.payload(op)
+            store.close()
+            store = ClientStore(settings)
+            assert store.payload(op) == wire
+            validated = OperationRequest.model_validate(wire).model_dump(mode="json")
+            ledger.accept("a", validated)
+            assert ledger.accept("a", validated)[1] is False
+            changed = {**validated, "sender_context": {**validated["sender_context"], "model": "different"}}
+            with pytest.raises(BrokerError, match="different request"):
+                ledger.accept("a", changed)
+            descriptor = validated["sender_context"]
+            with ledger.transaction() as conn:
+                row = conn.execute(
+                    "SELECT sender_context FROM broker_v06_operations WHERE operation_id=%s", (op,)
+                ).fetchone()
+            assert ledger._decrypt(row["sender_context"]) == descriptor
+            reopened = BrokerStore(ledger.settings)
+            reopened.acquire_dispatcher()
+            claim = reopened.claim()
+            reopened.close()
+            assert claim["sender_context"] == descriptor
+            result = [r async for r in peer.submit(claim, 5)][-1]
+            assert result.state == "completed"
+            contexts.append(messages[-1]["contextId"])
+            ledger.finish("a", op, "completed", {"text": "safe result", "artifacts": []})
+            with ledger.transaction() as conn:
+                row = conn.execute(
+                    "SELECT sender_context FROM broker_v06_operations WHERE operation_id=%s", (op,)
+                ).fetchone()
+            assert ledger._decrypt(row["sender_context"]) == descriptor
+        assert len(set(contexts)) == 1
+        entries = receiver.protocol.load_conversation(contexts[0])
+        assert [entry["sender_context"]["model"] for entry in entries] == ["Gemini model", "Claude model"]
+        assert all(
+            set(message["metadata"]["sender_context"]) == {"harness", "model", "connection"} for message in messages
+        )
+        assert "Claude model" in framed[-1]
+    finally:
+        store.close()
+        await peer.close()
+
+
+async def test_legacy_broker_migration_and_retry_do_not_backfill_sender(ledger, broker_settings):
+    body = command()
+    before, _ = ledger.accept("a", body)
+    with ledger.transaction() as conn:
+        conn.execute("ALTER TABLE broker_v06_operations DROP COLUMN sender_context")
+    reopened = BrokerStore(broker_settings)
+    try:
+        assert reopened.get("a", body["operation_id"]) == before
+        app = create_broker_app(broker_settings, store=reopened, dispatch=False)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://broker.test") as client:
+            response = await client.post("/v1/operations", json=body, headers={"Authorization": f"Bearer {TOKEN_A}"})
+        assert response.status_code == 200
+        assert response.json() == before
+        with reopened.transaction() as conn:
+            row = conn.execute(
+                "SELECT sender_context FROM broker_v06_operations WHERE operation_id=%s", (body["operation_id"],)
+            ).fetchone()
+        assert row["sender_context"] is None
+    finally:
+        reopened.close()
+
+
+async def test_database_disconnect_fails_closed_and_supervisor_is_notified(ledger, broker_settings, monkeypatch):
+    app = create_broker_app(broker_settings, store=ledger, peer=FakePeer())
+    notifications = []
+    app.state.on_dispatcher_failure = lambda: notifications.append(True)
+    async with app.router.lifespan_context(app):
+        pid = ledger.conn.info.backend_pid
+        with psycopg.connect(broker_settings.database_url, autocommit=True) as admin:
+            admin.execute("SELECT pg_terminate_backend(%s)", (pid,))
+        for _ in range(100):
+            if notifications:
+                break
+            await asyncio.sleep(0.01)
+        assert notifications == [True]
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="https://broker.test") as client:
+            headers = {"Authorization": f"Bearer {TOKEN_A}"}
+            assert (await client.get("/healthz", headers=headers)).status_code == 503
+            assert (await client.post("/v1/operations", headers=headers, json=command())).status_code == 503
+
+
+async def test_health_probes_database_without_dispatcher(ledger, broker_settings):
+    app = create_broker_app(broker_settings, store=ledger, dispatch=False)
+    ledger.conn.close()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="https://broker.test") as client:
+        result = await client.get("/healthz", headers={"Authorization": f"Bearer {TOKEN_A}"})
+        assert result.status_code == 503 and result.json()["error"]["code"] == "ledger_unavailable"
+
+
+def test_reconciliation_failure_has_quiet_period(ledger):
+    value = command()
+    ledger.accept("a", value)
+    ledger.acquire_dispatcher()
+    ledger.claim()
+    ledger.save_handle("a", value["operation_id"], "missing-handle")
+    ledger.finish("a", value["operation_id"], "outcome_unknown")
+    assert len(ledger.reconcilable()) == 1
+    ledger.defer_reconcile("a", value["operation_id"])
+    assert ledger.reconcilable() == []
+    assert ledger.get("a", value["operation_id"])["state"] == "outcome_unknown"
+
+
+async def test_repeated_progress_saves_handle_only_once(ledger, broker_settings, monkeypatch):
+    value = command()
+    ledger.accept("a", value)
+    saved = []
+    original = ledger.save_handle
+
+    def record(*args):
+        saved.append(args)
+        return original(*args)
+
+    monkeypatch.setattr(ledger, "save_handle", record)
+    dispatcher = BrokerDispatcher(ledger, FakePeer(), broker_settings)
+    for _ in range(100):
+        await dispatcher.observe("a", value["operation_id"], task(state="working"))
+    assert len(saved) == 1
+    changed = task(state="working").model_copy(update={"task_id": "wrong-handle"})
+    with pytest.raises(BrokerError, match="changed task handle"):
+        await dispatcher.observe("a", value["operation_id"], changed)
+
+
+def test_upload_accepts_uppercase_digest_and_stores_canonical_lowercase(ledger):
+    content = b"fixture"
+    digest = hashlib.sha256(content).hexdigest()
+    stored = ledger.put_artifact("a", content, digest.upper(), "text/plain")
+    assert stored["sha256"] == digest
+
+
+def test_disconnect_restart_preserves_unknown_identity_and_reconciles_exact_handle(ledger, broker_settings):
+    first = command()
+    ledger.accept("a", first)
+    ledger.acquire_dispatcher()
+    ledger.claim()
+    ledger.save_handle("a", first["operation_id"], "exact-before-disconnect")
+    pid = ledger.conn.info.backend_pid
+    with psycopg.connect(broker_settings.database_url, autocommit=True) as admin:
+        admin.execute("SELECT pg_terminate_backend(%s)", (pid,))
+    with pytest.raises(psycopg.Error):
+        ledger.ping()
+    restarted = BrokerStore(broker_settings)
+    try:
+        restarted.acquire_dispatcher()
+        restarted.recover()
+        value = restarted.get("a", first["operation_id"])
+        assert value["state"] == "outcome_unknown"
+        assert value["remote_task_id"] == "exact-before-disconnect"
+        assert value["flow_id"] == first["flow_id"]
+        assert restarted.claim() is None
+        assert restarted.reconcilable()[0]["remote_task_id"] == "exact-before-disconnect"
+        assert restarted.accept("a", first) == (value, False)
+    finally:
+        restarted.close()
+
+
+async def test_stream_many_binary_chunks_encode_accumulated_data_only_at_terminal(monkeypatch):
+    class BinaryClient(A2AClient):
+        async def _sse(self, *args, **kwargs):
+            for _ in range(200):
+                yield {
+                    "artifactUpdate": {
+                        "taskId": "handle",
+                        "append": True,
+                        "artifact": {"artifactId": "binary", "parts": [{"raw": "YQ=="}]},
+                    }
+                }
+            yield {"statusUpdate": {"taskId": "handle", "status": {"state": "TASK_STATE_COMPLETED"}}}
+
+    encoded_lengths = []
+    original = base64.b64encode
+
+    def record(data, *args, **kwargs):
+        encoded_lengths.append(len(data))
+        return original(data, *args, **kwargs)
+
+    monkeypatch.setattr(base64, "b64encode", record)
+    peer = HermesBrokerPeer(BinaryClient(Settings()))
+    try:
+        results = [x async for x in peer.submit({**command(), "device_id": "a", "attachments": []}, 5)]
+        assert encoded_lengths == [200]
+        assert base64.b64decode(results[-1].artifacts[0]["parts"][0]["raw"]) == b"a" * 200
+        assert all(not item.artifacts for item in results[:-1])
+    finally:
+        await peer.close()
+
+
+async def test_empty_sse_last_event_id_starts_at_zero(ledger, broker_settings):
+    from starlette.requests import Request
+
+    app = create_broker_app(broker_settings, store=ledger, dispatch=False)
+    endpoint = next(route.endpoint for route in app.routes if route.path == "/v1/events")
+    response = await endpoint(
+        Request(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": "/v1/events",
+                "query_string": b"",
+                "headers": [(b"last-event-id", b"")],
+                "state": {"device_id": "a"},
+            }
+        )
+    )
+    assert response.status_code == 200
+    await response.body_iterator.aclose()

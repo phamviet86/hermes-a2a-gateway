@@ -23,7 +23,16 @@ def distributions(directory: Path) -> list[Path]:
         or len([item for item in items if item.name.endswith(".tar.gz")]) != 1
     ):
         raise ValueError("expected exactly one wheel and one source distribution")
-    extras = [directory / name for name in ("hermes-a2a-compat.patch", "hermes-a2a-compat.json", "hermes_patch.py")]
+    extras = [
+        directory / name
+        for name in (
+            "hermes-a2a-compat.patch",
+            "hermes-a2a-compat.json",
+            "hermes-a2a-sender-722bced.patch",
+            "hermes-a2a-sender-722bced.json",
+            "hermes_patch.py",
+        )
+    ]
     if any(path.exists() for path in extras):
         if not all(path.is_file() for path in extras):
             raise ValueError("incomplete Hermes compatibility asset set")

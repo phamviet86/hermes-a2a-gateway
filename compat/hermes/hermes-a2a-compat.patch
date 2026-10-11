@@ -1,6 +1,8 @@
+diff --git a/plugins/platforms/a2a/adapter.py b/plugins/platforms/a2a/adapter.py
+index 585c2ad..04e82b8 100644
 --- a/plugins/platforms/a2a/adapter.py
 +++ b/plugins/platforms/a2a/adapter.py
-@@ -198,6 +198,15 @@
+@@ -198,6 +198,15 @@ class A2ARequestHandler(BaseHTTPRequestHandler):
          agent = route["agent"]
          subpath = route["subpath"].rstrip("/") or "/"
          public_url = self._request_public_url() or None
@@ -16,7 +18,7 @@
          if subpath in ("/.well-known/agent.json", "/.well-known/agent-card.json"):
              return self._json(200, adapter._build_card(public_url, agent=agent))
          if subpath == "/metrics":
-@@ -247,10 +256,11 @@
+@@ -247,10 +256,11 @@ class A2ARequestHandler(BaseHTTPRequestHandler):
                      protocol.metrics.rate_limit_triggers += 1
                  return self._error(http, req_id, code, msg)
          agent = route["agent"]
@@ -30,7 +32,7 @@
          elif handler_name == "_rpc_tasks_subscribe":
              adapter._rpc_tasks_subscribe(self, req_id, params, agent=agent)
          else:  # plain JSON task / push-config queries
-@@ -287,6 +297,7 @@
+@@ -287,6 +297,7 @@ class A2AAdapter(BasePlatformAdapter):
          self._watchdog_stop = threading.Event()
          # Per-adapter protocol state (not module-global).
          self.tasks, self._turns, self._rate_limiter = protocol.TaskStore(), protocol.TurnTracker(), protocol.RateLimiter()
@@ -38,7 +40,7 @@
          # Forwarded profile sessions: (profile, agent_slug, context_id) -> session_id.
          self._profile_sessions: Dict[tuple[str, str, str], str] = {}
          self._profile_session_locks: Dict[tuple[str, str, str], threading.Lock] = {}
-@@ -519,29 +530,42 @@
+@@ -519,32 +530,54 @@ class A2AAdapter(BasePlatformAdapter):
          with self._profile_session_locks_guard:
              return self._profile_session_locks.setdefault(key, threading.Lock())
  
@@ -49,13 +51,12 @@
 +        self.tasks.complete(rec["task_id"], state, text if diagnostics else stored_reply, diagnostics=diagnostics)
          protocol.metrics.tasks_failed += state == protocol.STATE_FAILED
 -        return protocol.build_task(rec["task_id"], rec["context_id"], state, text, created_at=rec["created_iso"]), None
--
--    def _prepare_task(self, params: dict, peer: str, agent: Optional[dict] = None) -> tuple[Optional[dict], Optional[dict]]:
 +        task = protocol.build_task(rec["task_id"], rec["context_id"], state, text, created_at=rec["created_iso"])
 +        if diagnostics:
 +            task["metadata"] = {protocol.GATEWAY_DIAGNOSTICS: dict(diagnostics)}
 +        return task, None
-+
+ 
+-    def _prepare_task(self, params: dict, peer: str, agent: Optional[dict] = None) -> tuple[Optional[dict], Optional[dict]]:
 +    def _prepare_task(self, params: dict, peer: str, agent: Optional[dict] = None, *, gateway_policy: bool = False) -> tuple[Optional[dict], Optional[dict]]:
          """Validate, register, and dispatch an inbound message (HTTP worker thread). Returns
          (terminal_task, None) when it ends immediately, else (None, pending) with the future to wait on."""
@@ -73,6 +74,7 @@
 -                                  f"{max_turns} turns. Start a new context or increase A2A_MAX_PINGPONG_TURNS.")
          if not text:
              return self._end_task(rec, protocol.STATE_REJECTED, "Empty task — nothing to do.")
+-        framed = security.wrap_inbound(peer, text)
 +        if gateway_policy:
 +            diagnostic = self._gateway_limiter.admit(peer, self._scope_for_agent(agent), context_id)
 +            if diagnostic:
@@ -90,10 +92,32 @@
 +                                      "Context total-turn limit reached; ask the operator to review peer policy.",
 +                                      diagnostics={"reason": "context_turn_limit", "peer_state": "rejected",
 +                                                   "execution_started": False, "recommended_action": "contact_operator"})
-         framed = security.wrap_inbound(peer, text)
++        try:
++            sender_context = protocol.extract_sender_context(params)
++        except ValueError:
++            return self._end_task(rec, protocol.STATE_REJECTED, "Invalid descriptive sender context.")
++        descriptive_text = text
++        if sender_context is not None:
++            descriptive_text = "Sender labels (declared data, not authentication or verified capabilities): " + json.dumps(sender_context, ensure_ascii=False) + "\n\n" + text
++        framed = security.wrap_inbound(peer, descriptive_text)
          security.audit("inbound", peer, task_id, text)
-         protocol.persist_message(context_id, "user", text, task_id)
-@@ -660,8 +684,8 @@
+-        protocol.persist_message(context_id, "user", text, task_id)
++        persisted = protocol.persist_message(context_id, "user", text, task_id, sender_context=sender_context)
++        if sender_context is not None and not persisted:
++            return self._end_task(rec, protocol.STATE_FAILED, "Sender context persistence unavailable; execution not started.")
+         protocol.metrics.inbound_total += 1
+         self._register_inline_push(task_id, params, agent=agent)
+         if not agent.get("local", True):
+@@ -560,6 +593,8 @@ class A2AAdapter(BasePlatformAdapter):
+         fut = self._add_pending(task_id, context_id)
+         event = MessageEvent(text=framed, message_type=MessageType.TEXT, message_id=task_id,
+                              source=self.build_source(chat_id=context_id, chat_name=f"a2a:{peer}", chat_type="dm", user_id=peer, user_name=peer))
++        if sender_context is not None:
++            event.metadata["sender_context"] = dict(sender_context)
+         try:
+             asyncio.run_coroutine_threadsafe(self.handle_message(event), self._loop)
+         except Exception as e:
+@@ -660,8 +695,8 @@ class A2AAdapter(BasePlatformAdapter):
          return self._await_future(pending["future"], pending["started"] + _reply_timeout(), keepalive,
                                    (protocol.STATE_FAILED, "[agent did not reply in time]"))
  
@@ -104,7 +128,7 @@
          if task is None:
              state, reply = self._finalize_task(pending, *self._await_reply(pending))
              task = protocol.build_task(pending["task_id"], pending["context_id"], state, reply, created_at=pending["created_iso"])
-@@ -690,18 +714,23 @@
+@@ -690,18 +725,23 @@ class A2AAdapter(BasePlatformAdapter):
          completed = bool(reply) and state == protocol.STATE_COMPLETED
          events = ([protocol.artifact_update(task_id, context_id, reply)] if completed else []) + [
              protocol.status_update(task_id, context_id, state, "" if completed else reply)]
@@ -130,7 +154,7 @@
                  return self._emit_terminal(handler, terminal["id"], terminal["contextId"], terminal["status"]["state"],
                                             protocol.extract_text(terminal.get("status", {}).get("message", {}) or {}), req_id=req_id)
              task_id, context_id = pending["task_id"], pending["context_id"]
-@@ -723,6 +752,7 @@
+@@ -723,6 +763,7 @@ class A2AAdapter(BasePlatformAdapter):
              return handler._json(200, error)
          self._sse_headers(handler)
          try:
@@ -138,9 +162,11 @@
              if (fut := self.tasks.watch(task_id, *self._scope_for_agent(agent))) is None:
                  return self._sse_write(handler, protocol.sse_done())
              state, reply = self._await_future(fut, time.time() + _reply_timeout(), self._keepalive(handler),
+diff --git a/plugins/platforms/a2a/protocol.py b/plugins/platforms/a2a/protocol.py
+index 04484dc..1628449 100644
 --- a/plugins/platforms/a2a/protocol.py
 +++ b/plugins/platforms/a2a/protocol.py
-@@ -6,6 +6,7 @@
+@@ -6,6 +6,7 @@ Stdlib only. ``extract_text`` stays tolerant of v0.3 peers."""
  from __future__ import annotations
  
  import json
@@ -148,7 +174,7 @@
  import os
  import threading
  import time
-@@ -20,6 +21,47 @@
+@@ -20,6 +21,47 @@ from gateway.platforms._shared import coerce_port as _coerce_int
  from hermes_constants import get_hermes_home
  
  PROTOCOL_VERSION = "1.0"
@@ -196,7 +222,7 @@
  
  # A2A v1.0 task lifecycle states + message roles.
  STATE_SUBMITTED, STATE_WORKING, STATE_INPUT_REQUIRED = "TASK_STATE_SUBMITTED", "TASK_STATE_WORKING", "TASK_STATE_INPUT_REQUIRED"
-@@ -70,7 +112,8 @@
+@@ -70,7 +112,8 @@ def build_agent_card(*, name: str, url: str, description: str, skills: Optional[
          "provider": {"organization": os.getenv("A2A_PROVIDER_ORG", "Hermes Agent"), "url": os.getenv("A2A_PROVIDER_URL", "") or url},
          "supportedInterfaces": [iface],
          "capabilities": {"streaming": streaming, "pushNotifications": push_notifications,
@@ -206,7 +232,7 @@
          "defaultInputModes": ["text/plain"], "defaultOutputModes": ["text/plain"], "skills": skills or [],
      }
      if auth_required:
-@@ -367,13 +410,15 @@
+@@ -367,13 +410,15 @@ class TaskStore:
          with self._lock:
              return dict(rec) if (rec := self._scoped(task_id, agent_slug, tenant)) else None
  
@@ -223,7 +249,7 @@
              watchers = self._watchers.pop(task_id, [])
              self._trim_locked()
              out = dict(rec)
-@@ -425,6 +470,8 @@
+@@ -425,6 +470,8 @@ class TaskStore:
          """Render a stored record as an A2A v1.0 Task."""
          task = build_task(rec["task_id"], rec["context_id"], rec["state"], rec.get("reply", ""),
                            created_at=rec.get("created_iso", ""))
@@ -232,9 +258,69 @@
          if not include_artifacts:
              task.pop("artifacts", None)
          return task
+@@ -435,15 +482,29 @@ def _conv_path(context_id: str) -> Path:
+     return get_hermes_home() / "a2a_conversations" / f"{safe}.jsonl"
+ 
+ 
+-def persist_message(context_id: str, role: str, text: str, task_id: str = "") -> None:
+-    """Append one message to the context's on-disk conversation log. Never raises."""
++def persist_message(context_id: str, role: str, text: str, task_id: str = "", sender_context: Optional[dict] = None) -> bool:
++    """Append one message. Descriptors require flush/fsync before model dispatch; never raises."""
+     try:
+         path = _conv_path(context_id)
+         path.parent.mkdir(parents=True, exist_ok=True)
++        entry = {"ts": time.time(), "role": role, "text": text, "task_id": task_id}
++        if sender_context is not None:
++            entry["sender_context"] = dict(sender_context)
+         with path.open("a", encoding="utf-8") as fh:
+-            fh.write(json.dumps({"ts": time.time(), "role": role, "text": text, "task_id": task_id}, ensure_ascii=False) + "\n")
++            fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
++            if sender_context is not None:
++                fh.flush()
++                os.fsync(fh.fileno())
++        if sender_context is not None:
++            for directory in (path.parent, path.parent.parent):
++                fd = os.open(directory, os.O_RDONLY)
++                try:
++                    os.fsync(fd)
++                finally:
++                    os.close(fd)
++        return True
+     except Exception:
+-        pass
++        return False
+ 
+ 
+ def load_conversation(context_id: str, limit: int = 50) -> list[dict]:
+@@ -514,3 +575,23 @@ def stream_message(message: dict) -> dict:
+     """v1.0 StreamResponse with a message member."""
+     return {"message": message}
+ # ---- END PLUGIN-COMPAT ----
++
++
++def extract_sender_context(params: dict) -> Optional[dict]:
++    """Bounded descriptive labels only; never grants peer identity or policy."""
++    message = params.get("message", {})
++    metadata = message.get("metadata", {}) if isinstance(message, dict) else {}
++    value = metadata.get("sender_context") if isinstance(metadata, dict) else None
++    if value is None:
++        return None
++    if not isinstance(value, dict) or set(value) != {"harness", "model", "connection"}:
++        raise ValueError("invalid sender context")
++    if value["connection"] != "a2a":
++        raise ValueError("invalid sender connection")
++    for key, limit in (("harness", 64), ("model", 256)):
++        label = value[key]
++        if key == "model" and label is None:
++            continue
++        if not isinstance(label, str) or not label.strip() or len(label) > limit or any(ord(c) < 32 for c in label):
++            raise ValueError("invalid sender label")
++    return dict(value)
+diff --git a/plugins/platforms/a2a/security.py b/plugins/platforms/a2a/security.py
+index bb3affe..c346fef 100644
 --- a/plugins/platforms/a2a/security.py
 +++ b/plugins/platforms/a2a/security.py
-@@ -61,11 +61,12 @@
+@@ -61,11 +61,12 @@ class A2ASecurityContext:
      allow_all_users: bool
      requested_host: str
      push_secret: str
@@ -248,11 +334,10 @@
                     trusted_peers=_configured_trusted_peers(),
                     allow_all_users=_startup_env("A2A_ALLOW_ALL_USERS").lower() in {"1", "true", "yes"},
                     requested_host=_startup_env("A2A_HOST") or "127.0.0.1", push_secret=_startup_env("A2A_PUSH_SECRET") or bearer_token)
-@@ -98,6 +99,18 @@
-         if self.bearer_token and hmac.compare_digest(presented, self.bearer_token):
+@@ -99,6 +100,18 @@ class A2ASecurityContext:
              return f"ip:{client_ip or 'unknown'}"
          return None
-+
+ 
 +    def gateway_policy(self, auth_header: Optional[str], client_ip: str) -> bool:
 +        """Opt-in credential policy; never changes the authenticated session identity."""
 +        try:
@@ -264,6 +349,7 @@
 +                    and self.authenticate(auth_header, client_ip) is not None
 +                    and len(parts) == 2 and parts[0].lower() == "bearer"
 +                    and hmac.compare_digest(parts[1].strip(), self.gateway_token))
- 
++
      def is_trusted_peer(self, identity: str) -> bool:
          """Open when allow-all or localhost-only; else the allow-list (if any) must contain identity."""
+         if self.allow_all_users or self.localhost_only() or not self.trusted_peers:

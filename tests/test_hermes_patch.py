@@ -31,9 +31,16 @@ COMPAT = ROOT / "compat" / "hermes"
 def load_module(name, path):
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
+    previous = sys.modules.get(name)
     sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
+    try:
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        if previous is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = previous
 
 
 @pytest.fixture
@@ -359,3 +366,72 @@ def test_patch_staged_change_refused(patched):
     subprocess.run(["git", "-C", str(root), "add", "plugins/platforms/a2a"], check=True)
     with pytest.raises(ValueError, match="staged"):
         utility.execute(root, manifest, COMPAT / "hermes-a2a-compat.patch", "revert")
+
+
+def test_receiver_persists_labels_and_forwards_to_profile_without_changing_context(runtime):
+    captured = []
+    runtime.adapter._forward_to_profile = lambda agent, peer, context, framed: (
+        captured.append((peer, context, framed)) or "safe result",
+        runtime.protocol.STATE_COMPLETED,
+    )
+    for model in ["Gemini model", "Claude model"]:
+        body = params("same-context")
+        body["message"]["metadata"] = {
+            "sender_context": {"harness": "Antigravity", "model": model, "connection": "a2a"}
+        }
+        task, _ = runtime.adapter._prepare_task(body, "native-peer", gateway_policy=True)
+        assert task["contextId"] == "same-context"
+    entries = runtime.protocol.load_conversation("same-context")
+    assert [e["sender_context"]["model"] for e in entries] == ["Gemini model", "Claude model"]
+    assert all(peer == "native-peer" and ctx == "same-context" for peer, ctx, _ in captured)
+    assert "Claude model" in captured[-1][2] and "not authentication" in captured[-1][2]
+
+
+def test_receiver_rejects_invalid_metadata_and_does_not_promote_labels(runtime):
+    body = params("invalid")
+    body["message"]["metadata"] = {"sender_context": {"harness": "Codex", "model": "ok", "connection": "ssh"}}
+    task, _ = runtime.adapter._prepare_task(body, "native-peer", gateway_policy=True)
+    assert task["status"]["state"] == runtime.protocol.STATE_REJECTED
+    assert runtime.protocol.load_conversation("invalid") == []
+    assert runtime.adapter.tasks.get(task["id"])["peer"] == "native-peer"
+
+
+def test_receiver_local_event_keeps_structured_descriptor_and_native_source(runtime, monkeypatch):
+    adapter = runtime.adapter
+    ns = adapter._prepare_task.__globals__
+    events = []
+    monkeypatch.setitem(ns, "MessageEvent", lambda **kwargs: SimpleNamespace(metadata={}, **kwargs))
+    monkeypatch.setitem(ns, "MessageType", SimpleNamespace(TEXT="text"))
+    monkeypatch.setitem(ns, "asyncio", SimpleNamespace(run_coroutine_threadsafe=lambda *a: None))
+    import time
+
+    monkeypatch.setitem(ns, "time", time)
+    adapter._loop = object()
+    adapter._message_handler = object()
+    adapter._add_pending = lambda *a: object()
+    adapter.build_source = lambda **kwargs: kwargs
+    adapter.handle_message = lambda event: events.append(event)
+    body = params("local-context")
+    descriptor = {"harness": "Antigravity", "model": "Claude model", "connection": "a2a"}
+    body["message"]["metadata"] = {"sender_context": descriptor}
+    terminal, pending = adapter._prepare_task(
+        body, "native-peer", agent={"slug": "local", "tenant": "", "local": True}, gateway_policy=True
+    )
+    assert terminal is None and pending["context_id"] == "local-context"
+    assert events[0].metadata == {"sender_context": descriptor}
+    assert events[0].source["user_id"] == "native-peer"
+
+
+def test_sender_persistence_failure_prevents_execution(runtime, monkeypatch):
+    forwarded = []
+    runtime.adapter._forward_to_profile = lambda *args: forwarded.append(args)
+
+    def fail(fd):
+        raise OSError("synthetic fsync failure")
+
+    monkeypatch.setattr(runtime.protocol.os, "fsync", fail)
+    body = params("durable-failure")
+    body["message"]["metadata"] = {"sender_context": {"harness": "Codex", "model": "Codex model", "connection": "a2a"}}
+    task, _ = runtime.adapter._prepare_task(body, "native-peer", gateway_policy=True)
+    assert task["status"]["state"] == runtime.protocol.STATE_FAILED
+    assert forwarded == []

@@ -1,4 +1,4 @@
-# Deploy the v0.8 client/server gateway
+# Deploy the v0.9 client/server gateway
 
 > Step-by-step Vietnamese guides: [server installation and Hermes usage](server-hermes.vi.md) → [client installation and Codex usage](client-codex.vi.md). This page remains the shared release-installation and operations reference.
 
@@ -41,13 +41,13 @@ if [ -e "$gateway_venv" ]; then
   exit 1
 fi
 release_dir=$(mktemp -d)
-release_url=https://github.com/phamviet86/hermes-a2a-gateway/releases/download/v0.8.0
-wheel=hermes_a2a_gateway-0.8.0-py3-none-any.whl
-sdist=hermes_a2a_gateway-0.8.0.tar.gz
+release_url=https://github.com/phamviet86/hermes-a2a-gateway/releases/download/v0.9.0
+wheel=hermes_a2a_gateway-0.9.0-py3-none-any.whl
+sdist=hermes_a2a_gateway-0.9.0.tar.gz
 curl --fail --location --output "$release_dir/$wheel" "$release_url/$wheel"
 curl --fail --location --output "$release_dir/$sdist" "$release_url/$sdist"
 curl --fail --location --output "$release_dir/SHA256SUMS" "$release_url/SHA256SUMS"
-for asset in hermes-a2a-compat.patch hermes-a2a-compat.json hermes_patch.py; do
+for asset in hermes-a2a-compat.patch hermes-a2a-compat.json hermes-a2a-sender-722bced.patch hermes-a2a-sender-722bced.json hermes_patch.py; do
   curl --fail --location --output "$release_dir/$asset" "$release_url/$asset"
 done
 if command -v shasum >/dev/null 2>&1; then
@@ -271,3 +271,25 @@ Set `HERMES_A2A_GATEWAY_CLIENT_TRANSPORT_MODE=ssh-tunnel` and use the [SSH confi
 ## Long conversations and actionable errors (0.8)
 
 See the [English AI operating guide](ai-operations.md) and [versioned Hermes compatibility patch](hermes-compatibility.md). The gateway wheel alone does not remove the receiver's legacy conversation limit. Verify the authenticated peer policy with `client-doctor`. Keep the same context, observe existing operations with get/wait, and never blindly resend ambiguous work.
+
+## 0.9 upgrade and operating bounds
+
+Follow [the ordered 0.8 → 0.9 upgrade/rollback guide](upgrade-v0.9.md), including
+receiver revision/hash selection, quiescent backups and MCP refresh. The tested
+proxy is co-located on loopback; container/non-loopback proxies need an explicitly
+selected trust configuration and must not be made trusted by a wildcard.
+
+`outcome_unknown` is preserved uncertainty, not proof that execution failed.
+No-handle operations pause their flow and count toward admission until authoritative
+execution evidence is reconciled. The supported production broker runs under a
+supervisor with `Restart=on-failure`; a failed dispatcher triggers bounded shutdown
+and reconnect through restart, not a guessed retry of a transaction or A2A send.
+SQLite commits retain FULL power-loss durability on serialized worker threads.
+
+Payload/result expiry retains compact identity and receipt records for deduplication;
+metadata storage can grow. SSH descendant tracking retains a20Hz ownership check
+while its one owned tunnel is alive. Explicit upload uses bounded in-memory bytes,
+base64/JSON and encryption copies: allow several times the maximum upload size per
+concurrent request. Default client upload is8MiB and broker upload10MiB; a32MiB
+configured ceiling is not a32MiB total-RAM guarantee. This is not a public
+multi-tenant/high-throughput or zero-copy streaming service.

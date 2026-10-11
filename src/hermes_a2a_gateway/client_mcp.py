@@ -46,23 +46,46 @@ READ = types.ToolAnnotations(read_only_hint=True, destructive_hint=False, idempo
 WRITE = types.ToolAnnotations(read_only_hint=False, destructive_hint=True, idempotent_hint=False, open_world_hint=True)
 
 
+def harness_identity() -> dict[str, str]:
+    """Operator-owned MCP process configuration, never a model/tool argument."""
+    return {
+        "harness": os.environ.get(PREFIX + "HARNESS", "codex"),
+        "instance": os.environ.get(PREFIX + "HARNESS_INSTANCE", "default"),
+    }
+
+
 def request_meta(ctx: Context[Any, Any]) -> dict[str, Any]:
     meta = ctx.request_context.meta
     data = dict(meta) if meta is not None else {}
-    NativeOrigin.from_meta(data)
+    NativeOrigin.from_meta(data, harness_identity())
     return dict(data)
 
 
 async def invoke(ctx: Context[Any, Any], action: str, arguments: dict[str, Any]) -> types.CallToolResult:
+    command_started = False
     try:
         meta = request_meta(ctx)
+        identity = harness_identity()
         async with httpx.AsyncClient(
             transport=httpx.AsyncHTTPTransport(uds=str(client_socket_path())),
             base_url="http://client",
             timeout=75,
             trust_env=False,
         ) as client:
-            response = await client.post("/command", json={"action": action, "meta": meta, "arguments": arguments})
+            scoped = identity != {"harness": "codex", "instance": "default"}
+            if scoped or action == "submit":
+                health = await client.get("/healthz")
+                capabilities = health.json()
+                if health.is_error or scoped and capabilities.get("harness_identity_version") != 1:
+                    raise ValueError("daemon lacks trusted harness support")
+                if action == "submit" and capabilities.get("sender_context_version") != 1:
+                    raise ValueError("daemon lacks sender context support")
+            command_started = True
+            wire_action = action if identity == {"harness": "codex", "instance": "default"} else "harness_v1/" + action
+            response = await client.post(
+                "/command",
+                json={"action": wire_action, "meta": meta, "identity": identity, "arguments": arguments},
+            )
             payload = response.json()
             is_error = response.is_error or "error" in payload and payload.get("error") is not None
     except (ValueError, RuntimeError, AttributeError):
@@ -80,7 +103,7 @@ async def invoke(ctx: Context[Any, Any], action: str, arguments: dict[str, Any])
             },
             True,
         )
-        if action == "submit":
+        if action == "submit" and command_started:
             # Recover only the already-persisted exact native call; never repeat
             # a submit or infer a candidate from thread/flow recency.
             try:
@@ -92,7 +115,12 @@ async def invoke(ctx: Context[Any, Any], action: str, arguments: dict[str, Any])
                 ) as client:
                     response = await client.post(
                         "/command",
-                        json={"action": "resolve_call", "meta": meta, "arguments": {}},
+                        json={
+                            "action": "resolve_call" if wire_action == action else "harness_v1/resolve_call",
+                            "meta": meta,
+                            "identity": identity,
+                            "arguments": {},
+                        },
                     )
                     if response.status_code == 200:
                         payload = {**response.json(), "local_ack_recovered": True}
@@ -120,10 +148,25 @@ async def gateway_submit(
             description="Explicit inline wait from 0 to 60 seconds; omitted uses the daemon default.",
         ),
     ] = None,
+    model: Annotated[
+        str | None,
+        Field(
+            min_length=1,
+            max_length=256,
+            description="Explicit user-selected descriptive model label; not authentication or verified specs.",
+        ),
+    ] = None,
 ) -> ToolResult:
     """Submit once to this native thread's flow; returns durable operation identity and inline result when ready."""
     return await invoke(
-        ctx, "submit", {"prompt": prompt, "artifact_ids": artifact_ids or [], "wait_seconds": wait_seconds}
+        ctx,
+        "submit",
+        {
+            "prompt": prompt,
+            "artifact_ids": artifact_ids or [],
+            "wait_seconds": wait_seconds,
+            "model": model if model is not None else os.environ.get(PREFIX + "MODEL"),
+        },
     )
 
 

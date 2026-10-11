@@ -8,6 +8,7 @@ import binascii
 import hashlib
 import hmac
 import logging
+import time
 import uuid
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import aclosing, asynccontextmanager, suppress
@@ -27,6 +28,7 @@ from .broker_settings import BrokerSettings
 from .broker_store import FINAL, BrokerError, BrokerStore, canonical
 from .diagnostics import peer_error_details
 from .models import A2ATaskResult
+from .sender_context import SenderContext
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +45,7 @@ class OperationRequest(BaseModel):
     operation_id: uuid.UUID
     flow_id: uuid.UUID
     prompt: str = Field(min_length=1, max_length=1_000_000)
+    sender_context: SenderContext | None = None
     artifact_ids: list[uuid.UUID] = Field(default_factory=list, max_length=16)
 
 
@@ -112,13 +115,22 @@ class BrokerDispatcher:
         self._cancels: dict[tuple[str, str], asyncio.Task[None]] = {}
         self._observations = asyncio.Lock()
         self._closed = False
+        self._next_purge = 0.0
+        self._handles: dict[tuple[str, str], str] = {}
 
     async def observe(self, device: str, operation: str, task: A2ATaskResult) -> None:
         async with self._observations:
-            await self._observe(device, operation, task)
+            try:
+                await self._observe(device, operation, task)
+            finally:
+                if task.state in FINAL | {"rejected", "input_required"}:
+                    self._handles.pop((device, operation), None)
 
     async def _observe(self, device: str, operation: str, task: A2ATaskResult) -> None:
-        await asyncio.to_thread(self.store.save_handle, device, operation, task.task_id)
+        key = (device, operation)
+        if self._handles.get(key) != task.task_id:
+            await asyncio.to_thread(self.store.save_handle, device, operation, task.task_id)
+            self._handles[key] = task.task_id
         if task.state not in FINAL | {"rejected", "input_required"}:
             return
         current = await asyncio.to_thread(self.store.get, device, operation)
@@ -166,6 +178,7 @@ class BrokerDispatcher:
         )
 
     async def _unknown(self, device: str, operation: str) -> None:
+        self._handles.pop((device, operation), None)
         await asyncio.to_thread(
             self.store.finish,
             device,
@@ -243,7 +256,8 @@ class BrokerDispatcher:
         except psycopg.Error:
             raise
         except Exception:
-            # Read-only failures can be retried; the mutation is never replayed.
+            # Quiet failed reads without interpreting 404 as proof of nonexecution.
+            await asyncio.to_thread(self.store.defer_reconcile, device, operation)
             return
 
     async def step(self) -> None:
@@ -254,7 +268,9 @@ class BrokerDispatcher:
                 if job.done():
                     del tasks[key]
                     job.result()  # Database failure stops dispatch, never reconnects/replays.
-        await asyncio.to_thread(self.store.purge)
+        if time.monotonic() >= self._next_purge:
+            await asyncio.to_thread(self.store.purge)
+            self._next_purge = time.monotonic() + 30
         limit = self.settings.max_concurrent_streams
         while len(self._cancels) < limit:
             cancellation = await asyncio.to_thread(self.store.claim_cancel)
@@ -373,6 +389,15 @@ def create_broker_app(
                     await dispatcher.aclose()
 
             worker = asyncio.create_task(loop(), name="broker-dispatcher")
+
+            def dispatcher_done(task: asyncio.Task[None]) -> None:
+                if not task.cancelled():
+                    app.state.dispatcher_failed = True
+                    callback = getattr(app.state, "on_dispatcher_failure", None)
+                    if callback is not None:
+                        callback()
+
+            worker.add_done_callback(dispatcher_done)
         try:
             yield
         finally:
@@ -385,7 +410,9 @@ def create_broker_app(
 
     async def health(request: Request) -> Response:
         try:
-            db()
+            await asyncio.to_thread(db().ping)
+        except psycopg.Error:
+            return error_response(BrokerError("ledger_unavailable", "broker ledger unavailable", 503))
         except BrokerError as exc:
             return error_response(exc)
         return JSONResponse({"ok": True})
@@ -409,7 +436,9 @@ def create_broker_app(
         except ValidationError:
             raise BrokerError("invalid_request", "invalid operation request") from None
         snapshot, created = await asyncio.to_thread(
-            db().accept, request.state.device_id, command.model_dump(mode="json")
+            db().accept,
+            request.state.device_id,
+            {k: v for k, v in command.model_dump(mode="json").items() if k != "sender_context" or v is not None},
         )
         return JSONResponse(snapshot, status_code=202 if created else 200, headers={"Cache-Control": "no-store"})
 
@@ -435,7 +464,7 @@ def create_broker_app(
 
     async def events(request: Request) -> Response:
         try:
-            after = int(request.query_params.get("after", request.headers.get("Last-Event-ID", "0")))
+            after = int(request.query_params.get("after", request.headers.get("Last-Event-ID") or "0"))
             if after < 0 or after > 2**63 - 1:
                 raise ValueError
         except ValueError:
@@ -540,17 +569,24 @@ def run_broker() -> None:
         raise SystemExit(
             "Invalid broker configuration; check HERMES_A2A_GATEWAY_BROKER_* environment variables"
         ) from None
-    uvicorn.run(
-        create_broker_app(settings),
+    app = create_broker_app(settings)
+    config = uvicorn.Config(
+        app,
         host=settings.host,
         port=settings.port,
         workers=1,
         access_log=False,
-        # Persistent event subscribers must not indefinitely delay lifespan cleanup.
         timeout_graceful_shutdown=5,
         proxy_headers=True,
         forwarded_allow_ips="127.0.0.1,::1",
     )
+    server = uvicorn.Server(config)
+    app.state.on_dispatcher_failure = lambda: setattr(server, "should_exit", True)
+    server.run()
+    if not server.started:
+        raise SystemExit("Broker startup failed; service restart required.")
+    if getattr(app.state, "dispatcher_failed", False):
+        raise SystemExit("Broker dispatcher stopped; service restart required. No uncertain submission replayed.")
 
 
 if __name__ == "__main__":

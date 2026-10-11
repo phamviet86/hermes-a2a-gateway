@@ -159,3 +159,11 @@ other local callers retain legacy protection. All policies preserve context and
 session identity. Global peer rate limits still apply.
 
 Local client snapshots keep the existing SQLite result model: restrictive file permissions and retention, not new at-rest snapshot encryption. Broker diagnostic details are encrypted; local snapshots contain only the bounded allowlisted fields, never a newly copied raw peer rejection message.
+
+## Multiple local harnesses
+
+The [multi-harness contract](multi-harness.md) defines trusted adapter identity,
+scoped local ownership and delivery limits. Broker device/flow shapes remain unchanged.
+
+New submits optionally carry [sender labels](sender-context.md) as `sender_context`
+with exactly `harness`, `model`, `connection="a2a"`. Legacy absence remains unknown.

@@ -12,6 +12,8 @@ from pathlib import Path
 ASSETS = {
     "hermes-a2a-compat.patch": "compat/hermes/hermes-a2a-compat.patch",
     "hermes-a2a-compat.json": "compat/hermes/hermes-a2a-compat.json",
+    "hermes-a2a-sender-722bced.patch": "compat/hermes/hermes-a2a-sender-722bced.patch",
+    "hermes-a2a-sender-722bced.json": "compat/hermes/hermes-a2a-sender-722bced.json",
     "hermes_patch.py": "scripts/hermes_patch.py",
 }
 
@@ -22,6 +24,12 @@ def stage(directory: Path) -> None:
     patch_digest = hashlib.sha256((root / ASSETS["hermes-a2a-compat.patch"]).read_bytes()).hexdigest()
     if manifest["patch_sha256"] != patch_digest:
         raise ValueError("Hermes patch does not match compatibility manifest")
+    overlay = json.loads((root / ASSETS["hermes-a2a-sender-722bced.json"]).read_text())
+    if (
+        overlay["patch_sha256"]
+        != hashlib.sha256((root / ASSETS["hermes-a2a-sender-722bced.patch"]).read_bytes()).hexdigest()
+    ):
+        raise ValueError("Sender overlay does not match manifest")
     directory.mkdir(parents=True, exist_ok=True)
     for name, source in ASSETS.items():
         target = directory / name

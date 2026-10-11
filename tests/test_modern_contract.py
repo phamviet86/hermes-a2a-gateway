@@ -273,6 +273,8 @@ def test_v06_sqlite_copy_preserves_identity_ciphertext_receipts_and_unknown_deli
         for operation_id, row in before.items():
             after = store.row(operation_id)
             expected = dict(row)
+            # Additive sender metadata migration must not backfill legacy rows.
+            expected["sender_context"] = None
             if row["delivery_state"] == "enqueueing":
                 expected["delivery_state"] = "delivery_outcome_unknown"
                 expected["cancel_state"] = "outcome_unknown"
@@ -320,3 +322,21 @@ async def test_loopback_peer_ignores_inherited_proxy_environment(fake_a2a, monke
         assert await client.discover()
     finally:
         await client.aclose()
+
+
+async def test_agent_card_cannot_redirect_bearer_to_another_loopback_port():
+    import httpx
+
+    from hermes_a2a_gateway.a2a import A2AClient, A2AError
+    from hermes_a2a_gateway.settings import Settings
+
+    peer = A2AClient(Settings(endpoint="http://127.0.0.1:9900"))
+    await peer._client.aclose()
+    peer._client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"url": "http://127.0.0.1:9999/rpc"}))
+    )
+    try:
+        with pytest.raises(A2AError, match="configured RPC origin"):
+            await peer.discover()
+    finally:
+        await peer.aclose()

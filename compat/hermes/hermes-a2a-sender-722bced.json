@@ -1,0 +1,16 @@
+{
+  "patch_version": "0.9.0-sender-overlay",
+  "upstream_commit": "722bcedb382ef632aeb262b80bcfbff5a902494b",
+  "base_note": "Exact already-patched receiver hashes only; retains existing host changes. Not a patch for pristine upstream.",
+  "files": {
+    "plugins/platforms/a2a/adapter.py": {
+      "original_sha256": "816c0c2678f29765fb9a5ad22fb5e854cf50bdca435d777fc7b3c4ff529c3cfd",
+      "patched_sha256": "33a76408bc3a611874e90a1a2c35b30527c47eb614ebc69c305b4c0f80650ede"
+    },
+    "plugins/platforms/a2a/protocol.py": {
+      "original_sha256": "7c5982e8d119a79b9b8489ea7981181cf54a3453ed546054730a55bd2eb522cc",
+      "patched_sha256": "d369bb8ac4b00b55331b542b3627e9182df8f6382c314e64fd4ac6bd50fb317f"
+    }
+  },
+  "patch_sha256": "d6d30b6f7a9fea448cae1c43db9cfabac1819145f07284930d52b03ce0a80d5d"
+}

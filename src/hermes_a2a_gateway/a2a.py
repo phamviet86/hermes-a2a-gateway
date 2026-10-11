@@ -91,6 +91,10 @@ class A2AClient:
         expected = urlparse(endpoint)
         if parsed.hostname not in {expected.hostname, "localhost", "127.0.0.1", "::1"}:
             raise A2AError("unsafe_agent_card", "Hermes Agent Card changed the loopback host")
+        if parsed.scheme != expected.scheme or (parsed.port or (443 if parsed.scheme == "https" else 80)) != (
+            expected.port or (443 if expected.scheme == "https" else 80)
+        ):
+            raise A2AError("unsafe_agent_card", "Hermes Agent Card changed the configured RPC origin")
         self._rpc_url = candidate.rstrip("/") + "/"
         self._tenant = str((selected or {}).get("tenant") or "")
         self._card = card

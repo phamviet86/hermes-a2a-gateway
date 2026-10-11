@@ -85,6 +85,12 @@ CREATE TABLE IF NOT EXISTS broker_v06_receipts (
  FOREIGN KEY(device_id, operation_id) REFERENCES broker_v06_operations(device_id, operation_id)
 );
 CREATE INDEX IF NOT EXISTS broker_v06_flow ON broker_v06_operations(device_id, flow_id, created_at);
+CREATE INDEX IF NOT EXISTS broker_v09_active_flow ON broker_v06_operations(device_id, flow_id)
+ WHERE state IN ('running','outcome_unknown');
+CREATE INDEX IF NOT EXISTS broker_v09_admission ON broker_v06_operations(device_id)
+ WHERE state IN ('accepted','running','outcome_unknown');
+CREATE INDEX IF NOT EXISTS broker_v09_dispatch ON broker_v06_operations(created_at, operation_id)
+ WHERE state='accepted';
 CREATE INDEX IF NOT EXISTS broker_v06_artifact_expiry ON broker_v06_artifacts(expires_at);
 CREATE INDEX IF NOT EXISTS broker_v06_event_expiry ON broker_v06_events(expires_at);
 """
@@ -102,6 +108,7 @@ class BrokerStore:
         with self.transaction() as conn:
             conn.execute("SELECT pg_advisory_xact_lock(608060600)")
             conn.execute(SCHEMA)
+            conn.execute("ALTER TABLE broker_v06_operations ADD COLUMN IF NOT EXISTS sender_context bytea")
 
     @contextmanager
     def transaction(self) -> Iterator[psycopg.Connection[dict[str, Any]]]:
@@ -224,9 +231,17 @@ class BrokerStore:
             now = utcnow()
             conn.execute(
                 "INSERT INTO broker_v06_operations "
-                "(device_id,operation_id,flow_id,digest,state,created_at,updated_at) "
-                "VALUES (%s,%s,%s,%s,'accepted',%s,%s)",
-                (device, operation, request["flow_id"], digest, now, now),
+                "(device_id,operation_id,flow_id,digest,state,created_at,updated_at,sender_context) "
+                "VALUES (%s,%s,%s,%s,'accepted',%s,%s,%s)",
+                (
+                    device,
+                    operation,
+                    request["flow_id"],
+                    digest,
+                    now,
+                    now,
+                    self._encrypt(request["sender_context"]) if request.get("sender_context") is not None else None,
+                ),
             )
             conn.execute(
                 "INSERT INTO broker_v06_payloads VALUES (%s,%s,%s,%s)",
@@ -371,12 +386,24 @@ class BrokerStore:
                     "dispatcher restarted after dispatch was claimed; no resend",
                 )
 
+    def ping(self) -> None:
+        with self.transaction() as conn:
+            conn.execute("SELECT 1")
+
+    def defer_reconcile(self, device: str, operation: str) -> None:
+        with self.transaction() as conn:
+            conn.execute(
+                "UPDATE broker_v06_operations SET polled_at=%s WHERE device_id=%s AND operation_id=%s",
+                (utcnow() + timedelta(seconds=30), device, operation),
+            )
+
     def reconcilable(self) -> list[dict[str, Any]]:
         with self.transaction() as conn:
             rows = conn.execute(
                 "SELECT device_id,operation_id,remote_task_id FROM broker_v06_operations "
                 "WHERE state IN ('running','outcome_unknown') AND remote_task_id IS NOT NULL "
-                "ORDER BY polled_at NULLS FIRST,updated_at LIMIT 20"
+                "AND (polled_at IS NULL OR polled_at<=%s) ORDER BY polled_at NULLS FIRST,updated_at LIMIT 20",
+                (utcnow(),),
             ).fetchall()
             for row in rows:
                 conn.execute(
@@ -473,6 +500,7 @@ class BrokerStore:
     def put_artifact(self, device: str, content: bytes, digest: str, content_type: str) -> dict[str, Any]:
         if len(content) > self.settings.max_artifact_bytes:
             raise BrokerError("artifact_too_large", "artifact exceeds configured size limit", 413)
+        digest = digest.lower()
         if hashlib.sha256(content).hexdigest() != digest:
             raise BrokerError("digest_mismatch", "artifact digest does not match bytes", 422)
         # Content types are metadata, never executable response types on download.
@@ -547,4 +575,7 @@ class BrokerStore:
             now = utcnow()
             conn.execute("DELETE FROM broker_v06_payloads WHERE expires_at<=%s", (now,))
             conn.execute("DELETE FROM broker_v06_artifacts WHERE expires_at<=%s", (now,))
-            conn.execute("UPDATE broker_v06_operations SET result_cipher=NULL WHERE result_expires_at<=%s", (now,))
+            conn.execute(
+                "UPDATE broker_v06_operations SET result_cipher=NULL,sender_context=NULL WHERE result_expires_at<=%s",
+                (now,),
+            )

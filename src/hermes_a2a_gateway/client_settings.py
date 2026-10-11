@@ -46,6 +46,11 @@ class ClientSettings:
     ssh_connect_timeout_seconds: int = 10
 
     def __post_init__(self) -> None:
+        if self.ca_file is not None:
+            try:
+                ssl.create_default_context(cafile=self.ca_file)
+            except (OSError, ssl.SSLError):
+                raise ValueError("CA_FILE must be a readable valid certificate bundle") from None
         if self.transport_mode not in {"direct", "ssh-tunnel"}:
             raise ValueError("TRANSPORT_MODE must be direct or ssh-tunnel")
         parsed = urlsplit(self.broker_url)

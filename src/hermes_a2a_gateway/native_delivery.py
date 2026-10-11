@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import shutil
 import tempfile
 from dataclasses import dataclass
@@ -41,11 +42,37 @@ class NativeOrigin:
     thread_id: str
     turn_id: str
     call_id: str
+    harness: str = "codex"
+    instance: str = "default"
+
+    @property
+    def storage_thread_id(self) -> str:
+        # Default Codex rows and flows retain their original identifiers. The
+        # prefix cannot collide with a UUID, even for identical conversation IDs.
+        if self.harness == "codex" and self.instance == "default":
+            return self.thread_id
+        return "harness:" + json.dumps([self.harness, self.instance, self.thread_id], separators=(",", ":"))
 
     @classmethod
-    def from_meta(cls, meta: Any) -> NativeOrigin:
+    def from_meta(cls, meta: Any, identity: Any = None) -> NativeOrigin:
         if not isinstance(meta, dict):
             raise ValueError("native MCP metadata is required")
+        if identity is None:
+            identity = {"harness": "codex", "instance": "default"}
+        if not isinstance(identity, dict) or set(identity) != {"harness", "instance"}:
+            raise ValueError("invalid trusted harness identity")
+        harness, instance = identity["harness"], identity["instance"]
+        for value in (harness, instance):
+            if not isinstance(value, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,63}", value):
+                raise ValueError("invalid trusted harness identity")
+        if harness != "codex":
+            nested = meta.get("x-hermes-turn-metadata")
+            if not isinstance(nested, dict) or set(nested) != {"conversation_id", "turn_id", "call_id"}:
+                raise ValueError("trusted harness turn metadata is required")
+            values = [nested[key] for key in ("conversation_id", "turn_id", "call_id")]
+            if any(not isinstance(value, str) or not value.strip() or len(value) > 512 for value in values):
+                raise ValueError("invalid trusted harness turn metadata")
+            return cls(values[0], values[1], values[2], harness, instance)
         nested = meta.get("x-codex-turn-metadata")
         if not isinstance(nested, dict):
             raise ValueError("native turn metadata is required")
@@ -60,7 +87,7 @@ class NativeOrigin:
             raise ValueError("native callId is required")
         if nested.get("call_id") is not None and nested["call_id"] != call_id:
             raise ValueError("native call metadata disagrees")
-        return cls(thread_id, turn_id, call_id)
+        return cls(thread_id, turn_id, call_id, harness, instance)
 
 
 def result_reference(operation_id: str, result_id: str) -> str:
@@ -190,6 +217,9 @@ class NativeQueueDelivery:
                         raise EOFError("native transport closed")
                     message = json.loads(line)
                     if message.get("id") == request_id:
+                        error = message.get("error")
+                        if isinstance(error, dict) and error.get("code") in {-32601, -32602}:
+                            raise NativeUnsupported("Native queue method or arguments explicitly rejected; use pull")
                         if "error" in message or not isinstance(message.get("result"), dict):
                             raise ValueError("native request failed")
                         return dict(message["result"])

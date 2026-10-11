@@ -46,3 +46,6 @@ dist/
 .vscode/
 *.swp
 *~
+
+# Local orchestration evidence (not release content)
+docs/worker-context-*.md

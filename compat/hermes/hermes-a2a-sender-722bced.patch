@@ -1,0 +1,94 @@
+--- a/plugins/platforms/a2a/adapter.py
++++ b/plugins/platforms/a2a/adapter.py
+@@ -566,9 +566,20 @@
+                                       "Context total-turn limit reached; ask the operator to review peer policy.",
+                                       diagnostics={"reason": "context_turn_limit", "peer_state": "rejected",
+                                                    "execution_started": False, "recommended_action": "contact_operator"})
+-        framed = security.wrap_inbound(peer, text)
++        try:
++            sender_context = protocol.extract_sender_context(params)
++        except ValueError:
++            return self._end_task(rec, protocol.STATE_REJECTED, "Invalid descriptive sender context.",
++                                  diagnostics={"reason": "invalid_sender_context", "execution_started": False})
++        descriptive_text = text
++        if sender_context is not None:
++            descriptive_text = "Sender labels (declared data, not authentication or verified capabilities): " + json.dumps(sender_context, ensure_ascii=False) + "\n\n" + text
++        framed = security.wrap_inbound(peer, descriptive_text)
+         security.audit("inbound", peer, task_id, text)
+-        protocol.persist_message(context_id, "user", text, task_id)
++        persisted = protocol.persist_message(context_id, "user", text, task_id, sender_context=sender_context)
++        if sender_context is not None and not persisted:
++            return self._end_task(rec, protocol.STATE_FAILED, "Sender context persistence unavailable; execution not started.",
++                                  diagnostics={"reason": "sender_context_persistence_failed", "execution_started": False})
+         protocol.metrics.inbound_total += 1
+         self._register_inline_push(task_id, params, agent=agent)
+         if not agent.get("local", True):
+@@ -584,6 +595,8 @@
+         fut = self._add_pending(task_id, context_id)
+         event = MessageEvent(text=framed, message_type=MessageType.TEXT, message_id=task_id,
+                              source=self.build_source(chat_id=context_id, chat_name=f"a2a:{peer}", chat_type="dm", user_id=peer, user_name=peer))
++        if sender_context is not None:
++            event.metadata["sender_context"] = dict(sender_context)
+         try:
+             asyncio.run_coroutine_threadsafe(self.handle_message(event), self._loop)
+         except Exception as e:
+--- a/plugins/platforms/a2a/protocol.py
++++ b/plugins/platforms/a2a/protocol.py
+@@ -482,15 +482,29 @@
+     return get_hermes_home() / "a2a_conversations" / f"{safe}.jsonl"
+ 
+ 
+-def persist_message(context_id: str, role: str, text: str, task_id: str = "") -> None:
+-    """Append one message to the context's on-disk conversation log. Never raises."""
++def persist_message(context_id: str, role: str, text: str, task_id: str = "", sender_context: Optional[dict] = None) -> bool:
++    """Append one message; descriptors require durable persistence before dispatch."""
+     try:
+         path = _conv_path(context_id)
+         path.parent.mkdir(parents=True, exist_ok=True)
++        entry = {"ts": time.time(), "role": role, "text": text, "task_id": task_id}
++        if sender_context is not None:
++            entry["sender_context"] = dict(sender_context)
+         with path.open("a", encoding="utf-8") as fh:
+-            fh.write(json.dumps({"ts": time.time(), "role": role, "text": text, "task_id": task_id}, ensure_ascii=False) + "\n")
++            fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
++            if sender_context is not None:
++                fh.flush()
++                os.fsync(fh.fileno())
++        if sender_context is not None:
++            for directory in (path.parent, path.parent.parent):
++                fd = os.open(directory, os.O_RDONLY)
++                try:
++                    os.fsync(fd)
++                finally:
++                    os.close(fd)
++        return True
+     except Exception:
+-        pass
++        return False
+ 
+ 
+ def load_conversation(context_id: str, limit: int = 50) -> list[dict]:
+@@ -514,3 +528,23 @@
+ def list_conversations() -> list[str]:
+     """Context-ids that have persisted conversations."""
+     return sorted(p.stem for p in (get_hermes_home() / "a2a_conversations").glob("*.jsonl"))
++
++
++def extract_sender_context(params: dict) -> Optional[dict]:
++    """Bounded descriptive labels only; never grants peer identity or policy."""
++    message = params.get("message", {})
++    metadata = message.get("metadata", {}) if isinstance(message, dict) else {}
++    value = metadata.get("sender_context") if isinstance(metadata, dict) else None
++    if value is None:
++        return None
++    if not isinstance(value, dict) or set(value) != {"harness", "model", "connection"}:
++        raise ValueError("invalid sender context")
++    if value["connection"] != "a2a":
++        raise ValueError("invalid sender connection")
++    for key, limit in (("harness", 64), ("model", 256)):
++        label = value[key]
++        if key == "model" and label is None:
++            continue
++        if not isinstance(label, str) or not label.strip() or len(label) > limit or any((ord(c) < 32 or ord(c) == 127) for c in label):
++            raise ValueError("invalid sender label")
++    return dict(value)
