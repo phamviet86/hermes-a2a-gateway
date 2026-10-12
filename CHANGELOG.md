@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0 — 2026-10-12
+
+- Add dedicated Antigravity MCP facade and persistent PreToolUse request bindings.
+- Bind model-selected retry keys to trusted host conversation UUIDs and exact arguments; reject wrong-owner reuse, absent/expired grants and changed content.
+- Preserve native Codex facade and0.9 daemon/broker compatibility; no automatic provider-model or credential changes.
+- Document configuration, lifecycle, safe retries, rollback and single-user boundaries.
+- Native Antigravity two-chat, exact retry, cross-chat rejection and actual model-switch acceptance passed on the integration candidate; post-context app reopen remains a separate user acceptance check.
+
+
 ## 0.9.0 — 2026-10-12
 
 - Offload serialized SQLite FULL writes from the event loop; idempotent close and passive checkpoint.

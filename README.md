@@ -4,11 +4,11 @@
 
 English | [Tiếng Việt](README.vi.md)
 
-Hermes A2A Gateway connects Codex Desktop to Hermes on a private server. The client
+Hermes A2A Gateway connects Codex Desktop and Antigravity to Hermes on a private server. The client
 owns a durable local inbox and optional SSH tunnel; the broker owns a PostgreSQL
 ledger and dispatches work to the server's loopback Hermes A2A endpoint.
 
-**Release: v0.9.0.** Adds three descriptive sender fields, trusted harness isolation
+**Release: v0.10.0.** Adds native Antigravity host-hook integration, three descriptive sender fields, trusted harness isolation
 and reliability fixes while preserving existing IDs, credentials and conversations.
 Antigravity defaults to `Gemini model`; explicit model labels keep the same flow.
 See [installation](docs/deployment.md), [upgrade/rollback](docs/upgrade-v0.9.md),
@@ -133,3 +133,6 @@ harness/instance isolation, required host metadata and explicit-pull delivery li
 [Sender labels](docs/sender-context.md) describe the calling harness and selected
 model per request, preserve conversation continuity, and require matching receiver
 support. They do not authenticate or verify model capabilities.
+
+
+Antigravity native integration: [setup and limits](docs/antigravity.md) · [hướng dẫn cài đặt](docs/client-antigravity.vi.md).

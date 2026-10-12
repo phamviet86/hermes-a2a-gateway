@@ -2,11 +2,11 @@
 
 [English](README.md) | **Tiếng Việt**
 
-**Bản phát hành v0.9.0** kết nối Codex Desktop với Hermes trên server riêng,
+**Bản phát hành v0.10.0** kết nối Codex Desktop và Antigravity với Hermes trên server riêng,
 qua MCP, daemon/inbox local và broker PostgreSQL. Client hỗ trợ HTTPS trực tiếp
 qua LAN/VPN hoặc HTTPS bên trong SSH tunnel do daemon quản lý.
 
-Bản 0.9 thêm ba trường sender, cách ly harness và sửa lỗi vận hành; đổi nhãn model giữ cùng cuộc trò chuyện. Xem [nâng cấp/rollback](docs/upgrade-v0.9.md).
+Bản 0.10 thêm native hook cho Antigravity để giữ riêng conversation ID, retry và kết quả. Xem [cài Antigravity](docs/client-antigravity.vi.md). Ba trường sender và cách ly harness từ0.9 được giữ nguyên; đổi nhãn model giữ cùng cuộc trò chuyện. Xem [nâng cấp/rollback](docs/upgrade-v0.9.md).
 
 Tên package, lệnh và đăng ký MCP thống nhất **`hermes-a2a-gateway`**. Namespace
 Python là `hermes_a2a_gateway`, biến môi trường dùng `HERMES_A2A_GATEWAY_*`.
@@ -103,3 +103,6 @@ harness/instance isolation, required host metadata and explicit-pull delivery li
 [Sender labels](docs/sender-context.md) describe the calling harness and selected
 model per request, preserve conversation continuity, and require matching receiver
 support. They do not authenticate or verify model capabilities.
+
+
+Antigravity native integration: [setup and limits](docs/antigravity.md) · [hướng dẫn cài đặt](docs/client-antigravity.vi.md).

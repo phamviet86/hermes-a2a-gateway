@@ -75,3 +75,8 @@ delivery regression checks. These checks do not prove live host integration.
 
 Descriptive model labels travel separately; see [sender labels](sender-context.md).
 They never participate in the scoped routing key.
+
+
+Antigravity2.22.0 supplies conversation identity through its native lifecycle hook.
+The dedicated [Antigravity facade](antigravity.md) attests exact MCP requests with that
+host identity; the generic facade still requires trusted MCP metadata.

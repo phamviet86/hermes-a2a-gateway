@@ -1,6 +1,6 @@
 # Client: cài đặt và sử dụng với Codex Desktop
 
-Hướng dẫn này dành cho **v0.9.0 client/server** của Hermes A2A Gateway. Codex trên máy cá nhân giao việc cho Hermes trên server; daemon giữ inbox local và lấy kết quả qua HTTPS/SSE. Package, lệnh và đăng ký MCP thống nhất tên `hermes-a2a-gateway`.
+Hướng dẫn này dành cho **v0.10.0 client/server** của Hermes A2A Gateway. Codex trên máy cá nhân giao việc cho Hermes trên server; daemon giữ inbox local và lấy kết quả qua HTTPS/SSE. Package, lệnh và đăng ký MCP thống nhất tên `hermes-a2a-gateway`.
 
 ```text
 Codex Desktop → MCP client-mcp → daemon + SQLite → HTTPS/SSE → server → Hermes
@@ -17,7 +17,7 @@ Làm [hướng dẫn server](server-hermes.vi.md) trước, sau đó làm các b
 - Server đã sẵn sàng. Nhận ba thông tin qua kênh quản trị được xác thực: **HTTPS origin** (ví dụ `https://gateway.example.internal:9443`, không thêm `/v1`), **device token riêng cho máy này**, và **CA certificate** nếu server dùng CA riêng. Không nhận private key TLS hoặc encryption key của broker.
 - Máy client phải truy cập được mạng riêng/VPN của server, và hostname/IP trong URL phải khớp SAN của chứng chỉ. Không dùng `curl -k` hoặc tắt kiểm tra TLS.
 
-CI kiểm tra cài wheel sạch trên macOS và Linux. Bản v0.8 được kiểm chứng thêm từ artifact GitHub trên Mac/VPS. Luồng kết quả muộn đã được kiểm chứng trên macOS; không suy ra mọi bản Desktop hoặc Linux có hành vi wake giống nhau. Client dùng Unix socket, chưa hỗ trợ Windows. Adapter v0.9.0 chỉ cho phép CLI `0.154.0` và `0.155.0-alpha.9.2`, đồng thời kiểm tra schema queue; ngoài danh sách đó sẽ dùng cơ chế lấy kết quả chủ động nếu host vẫn cung cấp native MCP metadata. Xem [bằng chứng v0.8](testing-report-v0.8.0.md) và [các phiên bản đã kiểm chứng trước đó](history/testing-report-v0.6.0b1.md).
+CI kiểm tra cài wheel sạch trên macOS và Linux. Bản v0.8 được kiểm chứng thêm từ artifact GitHub trên Mac/VPS. Luồng kết quả muộn đã được kiểm chứng trên macOS; không suy ra mọi bản Desktop hoặc Linux có hành vi wake giống nhau. Client dùng Unix socket, chưa hỗ trợ Windows. Adapter v0.10.0 chỉ cho phép CLI `0.154.0` và `0.155.0-alpha.9.2`, đồng thời kiểm tra schema queue; ngoài danh sách đó sẽ dùng cơ chế lấy kết quả chủ động nếu host vẫn cung cấp native MCP metadata. Xem [bằng chứng v0.8](testing-report-v0.8.0.md) và [các phiên bản đã kiểm chứng trước đó](history/testing-report-v0.6.0b1.md).
 
 Tìm CLI trong terminal. Đường dẫn bundle phụ thuộc tên ứng dụng thực tế:
 

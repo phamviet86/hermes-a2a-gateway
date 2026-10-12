@@ -1,3 +1,29 @@
+# v0.10.0 — Native Antigravity conversation binding
+
+Antigravity2.22.0 can now use a dedicated MCP facade with native PreToolUse hooks.
+The host conversation UUID binds an exact tool/request_key/arguments combination;
+the model-supplied retry key is never sufficient identity. Persistent ownership,
+120second attestations and quotas fail closed on absent or conflicting identity.
+Codex keeps its original MCP schema and routing. Default descriptive sender fields
+are Antigravity / Gemini model / a2a; explicit model labels keep the same flow.
+
+[Antigravity installation in Vietnamese](client-antigravity.vi.md),
+[technical integration and boundaries](antigravity.md),
+[shared install/operations](deployment.md), [Codex setup](client-codex.vi.md).
+The broker and client use the same0.10.0 wheel. No new receiver patch is required:
+retain the exact compatible0.9 receiver overlay, credentials, ledgers and IDs.
+Upgrade code only after quiescent backup, and keep current data when rolling back.
+
+Actual candidate acceptance on Antigravity2.22.0 observed overlapping separate chats,
+exact retry returning one operation, rejected foreign reads/cancel/key reuse,
+and a real Gemini→Claude model switch preserving flow and marker recall.
+Post-context app reopen remains a user acceptance check. Model labels are descriptive,
+not backend attestations. This is single-user conversation isolation, not protection
+against a malicious same-UID process with arbitrary command/file access. Explicit
+get/wait is required; Antigravity native push delivery is not implemented.
+
+## Previous v0.9 release
+
 # v0.9.0 — Sender labels, harness isolation and reliability fixes
 
 Every new gateway operation carries exactly `harness`, `model` and `connection=a2a`.

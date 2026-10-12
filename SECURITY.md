@@ -4,7 +4,8 @@
 
 | Version | Security fixes |
 | --- | --- |
-| 0.7.0 | Current release; report the exact installed version and transport mode |
+| 0.10.0 | Current release; report the exact installed version, host integration and transport mode |
+| 0.9.0 | Previous release; lacks the native Antigravity hook integration |
 | 0.6 / 0.5 and older | Retired runtime; follow the v0.7 migration guide |
 
 ## Reporting a vulnerability
@@ -50,3 +51,16 @@ configuration aliases are absent in v0.7. Follow
 removing obsolete operational installations.
 
 This independent project is not an official product of Nous Research or OpenAI.
+
+
+## Antigravity host bindings
+
+The dedicated facade requires native PreToolUse attestation of each exact request.
+A model-selected UUID retry key is not conversation authority. The hook binds it
+to Antigravity's actual conversationId with persistent ownership and a short-lived
+permit. The generic MCP facade still rejects missing metadata. Hooks never read
+chat stores or provider credentials, and never automatically allow MCP actions.
+The protected registry/key live outside replaceable runtimes. See
+[configuration, lifecycle and threat boundaries](docs/antigravity.md). This protects
+conversation routing for one local user, not against malicious same-user processes
+or agents with unrestricted local read/write/command access.

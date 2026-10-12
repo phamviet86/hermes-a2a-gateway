@@ -162,7 +162,7 @@ def main() -> None:
             "--draft",
             f"--prerelease={str(PRERELEASE).lower()}",
             "--title",
-            f"{TAG} — Hermes sender labels and harness isolation",
+            Path("docs/release-notes.md").read_text().splitlines()[0].removeprefix("# "),
             "--notes-file",
             "docs/release-notes.md",
         )

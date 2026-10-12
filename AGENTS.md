@@ -4,7 +4,7 @@ Read this file before changing code, tests, documentation, packaging or release 
 
 ## Mission and current contract
 
-`hermes-a2a-gateway` connects Codex Desktop to a private Hermes server using MCP,
+`hermes-a2a-gateway` connects Codex Desktop and an explicit native Antigravity hook integration to a private Hermes server using MCP,
 a local SQLite client daemon, authenticated HTTPS/SSE, a PostgreSQL broker and
 loopback Hermes A2A. Direct and daemon-managed SSH tunnel transports are supported.
 The only public commands are `broker`, `client`, `client-mcp`, and `client-doctor`.
@@ -23,12 +23,15 @@ See `docs/client-server-contract.md`, `docs/deployment.md`, and the current READ
 
 - `broker*.py`: PostgreSQL ledger, authenticated API, loopback Hermes dispatch.
 - `client*.py`: single-writer SQLite inbox, MCP facade and transport lifecycle.
+- `antigravity_*.py`: native PreToolUse attestation registry and dedicated MCP facade; see `docs/antigravity.md`.
 - `ssh_tunnel.py`: client-owned SSH process, strict authentication, retry and cleanup.
 - `native_delivery.py`: version/schema-gated native queue delivery.
 - `a2a.py`, `settings.py`, `models.py`: internal loopback peer protocol transport.
 - MCP stdout contains protocol frames only; diagnostics go to stderr.
 - No model-supplied URL, SSH target, credential or execution identity. Native origin
-  comes from trusted host MCP metadata; reject missing or inconsistent identity.
+  comes from trusted host MCP metadata or an exact-request native Antigravity hook
+  attestation; a retry key is never sufficient identity by itself. Reject missing
+  or inconsistent provenance.
 - Verify TLS and SSH host keys, retain device bearer authentication inside tunnels,
   bind local forwards to loopback, and never invoke SSH through shell interpolation.
   Only the daemon owns its tunnel; never kill unrelated SSH processes or services.
