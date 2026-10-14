@@ -80,4 +80,4 @@ Upgrade: [v0.10 to v0.11](upgrades/upgrade-v0.11.md).
 
 Release provenance and remaining native checks: [v0.11.0 release/deployment evidence](reports/release-v0.11.0-2026-10-14.md).
 
-Latest native acceptance: [installed v0.11.0 attempt 4](reports/native-acceptance-v0.11.0-2026-10-14-attempt4.md) — Claude Desktop and Antigravity pass; Codex facade reload provenance remains pending.
+Latest native acceptance: [installed v0.11.0 attempt 5](reports/native-acceptance-v0.11.0-2026-10-14-attempt5.md) — Codex, Claude Desktop and Antigravity pass the scoped installed-release native submit/get gates.
