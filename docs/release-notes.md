@@ -1,4 +1,4 @@
-# Hermes A2A Gateway v0.11.0 — candidate
+# Hermes A2A Gateway v0.11.0
 
 The MCP facade now selects pluggable host identity providers. Codex and Antigravity
 retain their schemas, instructions, IDs and registry behavior; old Antigravity
@@ -13,12 +13,18 @@ existing inbox, key, ciphertext, peer-identity or namespace migration is require
 The 2026-10-14 operator-approved initial scope is Desktop first. Eight isolated
 Desktop probe joins matched; compaction/sidebar reopen retained identity,
 fork/clear changed it, and a native subagent shared its parent identity. These are
-probe results, not release installation or live gateway acceptance.
+bounded probe results. Separate live gateway acceptance verified two isolated
+Desktop sessions, saved-operation wait/get, cross-session read rejection and
+shared parent/subagent reads.
 
 CLI/IDE, actual resume, process restart and CLI/Desktop interoperability remain
 unverified. Ordinary Desktop chat and single-conversation mode are unsupported.
 Changing instance does not transfer access to prior operations.
 
 See [Desktop setup](guides/client-claude.vi.md) and [identity contract](reference/claude-code.md).
-Publication, CI and installed-release evidence must be established separately;
-this file currently describes a candidate, not a completed release.
+Offline validation: 356 passed, 1 skipped; 84.36% coverage with PostgreSQL 16.
+Compile, lint, formatting, typing, Codex schema, clean-wheel, distribution and
+compatibility/checksum checks passed. See [candidate evidence](reports/testing-report-v0.11.0.md).
+Release assets are published only from the exact successful main/push CI commit.
+Installed-release and native host regression evidence are separate from the
+source-candidate observations.

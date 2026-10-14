@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.11.0 — candidate
+## 0.11.0 — 2026-10-14
 
 - Unified MCP facade with operator-selected metadata and hook identity providers;
   existing Codex/Antigravity schemas, instructions, registry paths and IDs preserved.

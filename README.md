@@ -8,7 +8,7 @@ Hermes A2A Gateway connects Codex Desktop and Antigravity to Hermes on a private
 owns a durable local inbox and optional SSH tunnel; the broker owns a PostgreSQL
 ledger and dispatches work to the server's loopback Hermes A2A endpoint.
 
-**Release: v0.10.0.** Adds native Antigravity host-hook integration, three descriptive sender fields, trusted harness isolation
+**Release target: v0.11.0.** Adds Claude Code Desktop and native Antigravity host-hook integration, three descriptive sender fields, trusted harness isolation
 and reliability fixes while preserving existing IDs, credentials and conversations.
 Antigravity defaults to `Gemini model`; explicit model labels keep the same flow.
 See [installation](docs/guides/deployment.md), [upgrade/rollback](docs/upgrades/upgrade-v0.9.md),
@@ -137,7 +137,7 @@ support. They do not authenticate or verify model capabilities.
 
 Antigravity native integration: [setup and limits](docs/reference/antigravity.md) · [hướng dẫn cài đặt](docs/guides/client-antigravity.vi.md).
 
-## v0.11.0 candidate: Claude Code Desktop
+## Claude Code Desktop in v0.11.0
 
 The unified facade adds `hook:claude` with a dedicated `claude-desktop` instance,
 300-second single-use native hook attestations and explicit get/wait results.
@@ -145,4 +145,4 @@ Existing Codex/Antigravity schemas and identities are unchanged. CLI/IDE, actual
 resume, process restart and CLI/Desktop interoperability remain unverified.
 See [Claude contract](docs/reference/claude-code.md),
 [Desktop setup](docs/guides/client-claude.vi.md) and [proposal status](docs/proposals/README.md).
-This candidate is not a published release until the release gates complete.
+See the versioned GitHub release for published assets; local build artifacts are not release provenance.

@@ -2,7 +2,7 @@
 
 [English](README.md) | **Tiếng Việt**
 
-**Bản phát hành v0.10.0** kết nối Codex Desktop và Antigravity với Hermes trên server riêng,
+**Bản v0.11.0** kết nối Codex Desktop, Claude Code Desktop và Antigravity với Hermes trên server riêng,
 qua MCP, daemon/inbox local và broker PostgreSQL. Client hỗ trợ HTTPS trực tiếp
 qua LAN/VPN hoặc HTTPS bên trong SSH tunnel do daemon quản lý.
 
@@ -107,7 +107,7 @@ support. They do not authenticate or verify model capabilities.
 
 Antigravity native integration: [setup and limits](docs/reference/antigravity.md) · [hướng dẫn cài đặt](docs/guides/client-antigravity.vi.md).
 
-## Bản ứng viên v0.11.0: Claude Code Desktop
+## Claude Code Desktop trong v0.11.0
 
 Facade dùng chung bổ sung `hook:claude`, instance riêng `claude-desktop`, xác thực
 native hook dùng một lần trong 300 giây và đọc kết quả bằng get/wait.
@@ -115,4 +115,4 @@ Schema và định danh Codex/Antigravity hiện có được giữ nguyên. CLI
 thực tế, khởi động lại process và liên thông CLI/Desktop chưa được xác minh.
 Xem [hợp đồng Claude](docs/reference/claude-code.md),
 [hướng dẫn Desktop](docs/guides/client-claude.vi.md) và [trạng thái đề xuất](docs/proposals/README.md).
-Đây chưa phải bản phát hành cho đến khi hoàn tất các bước nghiệm thu phát hành.
+Dùng artifact từ GitHub release có phiên bản; bản build local không phải bằng chứng nguồn gốc phát hành.
