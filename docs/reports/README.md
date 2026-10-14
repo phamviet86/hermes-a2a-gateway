@@ -16,6 +16,7 @@ contracts in [`../reference/`](../reference/), upgrade procedures in
 | [testing-report-v0.7.0.md](testing-report-v0.7.0.md) | v0.7.0 verification, 2026-09-21 |
 | [testing-report-v0.8.0.md](testing-report-v0.8.0.md) | v0.8 verification, 2026-09-21 |
 | [testing-report-v0.9.0.md](testing-report-v0.9.0.md) | v0.9 candidate verification, 2026-10-12 |
+| [native-acceptance-v0.11.0-2026-10-14-attempt4.md](native-acceptance-v0.11.0-2026-10-14-attempt4.md) | Installed Claude Desktop/Antigravity pass; Codex facade reload evidence pending |
 | [release-v0.11.0-2026-10-14.md](release-v0.11.0-2026-10-14.md) | Published/installed provenance and remaining native UI acceptance limits |
 | [testing-report-v0.11.0.md](testing-report-v0.11.0.md) | v0.11.0 candidate tests and live Desktop gateway acceptance, 2026-10-14 |
 | [testing-report-v0.10.0.md](testing-report-v0.10.0.md) | v0.10.0 Antigravity adapter verification scope |
