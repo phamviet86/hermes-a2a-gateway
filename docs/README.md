@@ -21,8 +21,8 @@ product summary; use this page to find the right document. AI agents should read
 | [deployment.md](guides/deployment.md) | Shared release download/checksum, install, operations, upgrade and rollback reference |
 | [server-hermes.vi.md](guides/server-hermes.vi.md) | Server: Hermes, PostgreSQL, broker, TLS proxy (Vietnamese) |
 | [client-codex.vi.md](guides/client-codex.vi.md) | Workstation: client daemon and Codex Desktop MCP registration (Vietnamese) |
-| [client-antigravity.vi.md](guides/client-antigravity.vi.md) | Workstation: Antigravity facade and PreToolUse hook (Vietnamese) |
-| [client-claude.vi.md](guides/client-claude.vi.md) | Claude Code Desktop registration, hook merge and rollback |
+| [client-antigravity.vi.md](guides/client-antigravity.vi.md) | Antigravity existing/new setup, scoped MCP restart and use prompts (Vietnamese) |
+| [client-claude.vi.md](guides/client-claude.vi.md) | Claude Code Desktop project setup, hook merge, use prompts and rollback |
 | [ssh-tunnel.vi.md](guides/ssh-tunnel.vi.md) | Direct vs daemon-managed SSH transport, retries, diagnostics (Vietnamese) |
 | [ai-operations.md](guides/ai-operations.md) | How an AI agent should use the five `gateway_*` tools safely |
 
@@ -56,11 +56,11 @@ change current behavior until implemented, tested and released.
 
 ## Reports
 
-Dated evidence for v0.7.0–v0.10.0 releases and the 2026-10-12 review; see
+Dated evidence for v0.7.0–v0.11.0 releases and the 2026-10-12 review; see
 [reports/README.md](reports/README.md). Add a new dated report for new live results;
 never rewrite an existing one.
 
-Current unreleased work: [Claude CLI spike, blocked](reports/claude-code-identity-spike-2026-10-14.md)
+Pre-release v0.11.0 evidence: [Claude CLI spike, blocked](reports/claude-code-identity-spike-2026-10-14.md)
 and [unified MCP Phase 1 local verification](reports/unified-mcp-phase1-2026-10-14.md).
 [Attempt 2 Desktop live addendum](reports/claude-code-identity-spike-2026-10-14-attempt2.md) records 8/8 identity joins and remaining lifecycle gates. These reports do not establish v0.11.0 release acceptance.
 
@@ -78,6 +78,6 @@ Candidate verification: [v0.11.0 tests and live Desktop scope](reports/testing-r
 
 Upgrade: [v0.10 to v0.11](upgrades/upgrade-v0.11.md).
 
-Release provenance and remaining native checks: [v0.11.0 release/deployment evidence](reports/release-v0.11.0-2026-10-14.md).
+Release provenance and the then-pending native checks: [v0.11.0 release/deployment evidence](reports/release-v0.11.0-2026-10-14.md).
 
 Latest native acceptance: [installed v0.11.0 attempt 5](reports/native-acceptance-v0.11.0-2026-10-14-attempt5.md) — Codex, Claude Desktop and Antigravity pass the scoped installed-release native submit/get gates.

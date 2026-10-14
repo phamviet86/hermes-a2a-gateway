@@ -16,6 +16,7 @@ contracts in [`../reference/`](../reference/), upgrade procedures in
 | [testing-report-v0.7.0.md](testing-report-v0.7.0.md) | v0.7.0 verification, 2026-09-21 |
 | [testing-report-v0.8.0.md](testing-report-v0.8.0.md) | v0.8 verification, 2026-09-21 |
 | [testing-report-v0.9.0.md](testing-report-v0.9.0.md) | v0.9 candidate verification, 2026-10-12 |
+| [post-acceptance-cleanup-2026-10-14.md](post-acceptance-cleanup-2026-10-14.md) | Owned test cleanup, preserved evidence and operator guidance review |
 | [native-acceptance-v0.11.0-2026-10-14-attempt5.md](native-acceptance-v0.11.0-2026-10-14-attempt5.md) | Codex fresh facade and native submit/get pass; all three scoped installed-release gates accepted |
 | [native-acceptance-v0.11.0-2026-10-14-attempt4.md](native-acceptance-v0.11.0-2026-10-14-attempt4.md) | Installed Claude Desktop/Antigravity pass; Codex facade reload evidence pending |
 | [release-v0.11.0-2026-10-14.md](release-v0.11.0-2026-10-14.md) | Published/installed provenance and remaining native UI acceptance limits |
