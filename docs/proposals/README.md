@@ -7,7 +7,7 @@ intended work; it is not current behavior or installation guidance.
 
 | Proposal | Status | Target | Decisions | Next step |
 | --- | --- | --- | --- | --- |
-| [unified-mcp-identity.md](unified-mcp-identity.md) | `in-progress` | v0.11.0 | D1 share; D2 Desktop observed, resume unverified; D3 claude-desktop; D4 300 s; D5 no | Attempt 3: Desktop-only gate authorized 2026-10-14; Phase 2 local tests and live Desktop gateway acceptance passed; Phase 3 CI/release pending; original full matrix incomplete |
+| [unified-mcp-identity.md](unified-mcp-identity.md) | `implemented` | v0.11.0 | D1 share; D2 Desktop observed, resume unverified; D3 claude-desktop; D4 300 s; D5 no | Shipped v0.11.0 at 206b0f8; installed on both hosts. Final refreshed native UI checks pending; see [release evidence](../reports/release-v0.11.0-2026-10-14.md). Original full matrix incomplete |
 
 ## Lifecycle
 

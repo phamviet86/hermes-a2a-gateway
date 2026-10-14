@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **in progress — not released** (tracked in [proposals/README.md](README.md)). Nothing here is current behavior. Implement only with explicit operator authorization. |
+| Status | **Implemented in v0.11.0** under the dated Desktop-first scope revision below. This file records the design; current behavior is in [Claude reference](../reference/claude-code.md) and [setup guide](../guides/client-claude.vi.md). Final native UI limits are in the [release evidence](../reports/release-v0.11.0-2026-10-14.md). |
 | Target | v0.11.0 (minor, additive; no wire, schema or data migration) |
 | Written | 2026-10-14, against `main` at v0.10.0 (`a304d01`) |
 | Adds | Claude Code as a third trusted harness, beside Codex and Antigravity |

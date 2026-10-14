@@ -77,3 +77,5 @@ and [unified MCP Phase 1 local verification](reports/unified-mcp-phase1-2026-10-
 Candidate verification: [v0.11.0 tests and live Desktop scope](reports/testing-report-v0.11.0.md).
 
 Upgrade: [v0.10 to v0.11](upgrades/upgrade-v0.11.md).
+
+Release provenance and remaining native checks: [v0.11.0 release/deployment evidence](reports/release-v0.11.0-2026-10-14.md).
