@@ -1,11 +1,11 @@
-# Deploy the v0.10 client/server gateway
+# Deploy the v0.11 client/server gateway
 
 > Step-by-step Vietnamese guides: [server installation and Hermes usage](server-hermes.vi.md) → [client installation and Codex usage](client-codex.vi.md). This page remains the shared release-installation and operations reference.
 
 This is the only supported runtime profile: a Desktop workstation connects to one
 private server running Hermes. Install the canonical `hermes-a2a-gateway` package
 on each host. The four commands are `broker`, `client`, `client-mcp`, and
-`client-doctor`. See [v0.6 migration and legacy removal](migration-v0.7.md) before
+`client-doctor`. See [v0.6 migration and legacy removal](../upgrades/migration-v0.7.md) before
 replacing an existing installation.
 
 ```text
@@ -19,7 +19,7 @@ Desktop -- MCP stdio --> client daemon -- verified HTTPS --> TLS proxy
 
 The initial profile is one owner, several separately authorized devices, one
 broker process and one daemon per client state directory. It is not a public
-multi-tenant service or an HA cluster. Use the [wire contract](client-server-contract.md)
+multi-tenant service or an HA cluster. Use the [wire contract](../reference/client-server-contract.md)
 and the dated release evidence to distinguish implemented behavior from live
 observations. macOS/Linux wheel installation is checked separately from native
 Desktop integration; Windows is not supported by this Unix-socket client.
@@ -41,9 +41,9 @@ if [ -e "$gateway_venv" ]; then
   exit 1
 fi
 release_dir=$(mktemp -d)
-release_url=https://github.com/phamviet86/hermes-a2a-gateway/releases/download/v0.10.0
-wheel=hermes_a2a_gateway-0.10.0-py3-none-any.whl
-sdist=hermes_a2a_gateway-0.10.0.tar.gz
+release_url=https://github.com/phamviet86/hermes-a2a-gateway/releases/download/v0.11.0
+wheel=hermes_a2a_gateway-0.11.0-py3-none-any.whl
+sdist=hermes_a2a_gateway-0.11.0.tar.gz
 curl --fail --location --output "$release_dir/$wheel" "$release_url/$wheel"
 curl --fail --location --output "$release_dir/$sdist" "$release_url/$sdist"
 curl --fail --location --output "$release_dir/SHA256SUMS" "$release_url/SHA256SUMS"
@@ -259,7 +259,7 @@ If a submit returned no handle, reconcile its exact native thread/turn/call iden
 before deciding whether new work is safe. Never replay it just because the transport
 was closed, and do not open another task to bypass an uncertain submission.
 
-Follow [the migration and rollback guide](migration-v0.7.md) for exact cleanup
+Follow [the migration and rollback guide](../upgrades/migration-v0.7.md) for exact cleanup
 boundaries and data-preserving rollback. Keep private backups, but remove old
 operational services and MCP registrations after the new path passes its checks.
 An archived old binary must never run against a newer inbox or ledger.
@@ -270,11 +270,11 @@ Set `HERMES_A2A_GATEWAY_CLIENT_TRANSPORT_MODE=ssh-tunnel` and use the [SSH confi
 
 ## Long conversations and actionable errors (0.8)
 
-See the [English AI operating guide](ai-operations.md) and [versioned Hermes compatibility patch](hermes-compatibility.md). The gateway wheel alone does not remove the receiver's legacy conversation limit. Verify the authenticated peer policy with `client-doctor`. Keep the same context, observe existing operations with get/wait, and never blindly resend ambiguous work.
+See the [English AI operating guide](ai-operations.md) and [versioned Hermes compatibility patch](../reference/hermes-compatibility.md). The gateway wheel alone does not remove the receiver's legacy conversation limit. Verify the authenticated peer policy with `client-doctor`. Keep the same context, observe existing operations with get/wait, and never blindly resend ambiguous work.
 
 ## 0.9 upgrade and operating bounds
 
-Follow [the ordered 0.8 → 0.9 upgrade/rollback guide](upgrade-v0.9.md), including
+Follow [the ordered 0.8 → 0.9 upgrade/rollback guide](../upgrades/upgrade-v0.9.md), including
 receiver revision/hash selection, quiescent backups and MCP refresh. The tested
 proxy is co-located on loopback; container/non-loopback proxies need an explicitly
 selected trust configuration and must not be made trusted by a wildcard.

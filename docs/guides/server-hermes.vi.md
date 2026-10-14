@@ -2,7 +2,7 @@
 
 Tài liệu này dành cho người vận hành một máy chủ riêng chạy Hermes và một hoặc
 nhiều máy Codex Desktop. Nó triển khai nhánh **Codex → Hermes → trả kết quả về
-Codex** của `v0.10.0`:
+Codex** của `v0.11.0`:
 
 ```text
 Codex Desktop → client daemon → HTTPS riêng → broker → Hermes A2A loopback
@@ -16,7 +16,7 @@ khi server sẵn sàng; hai phía cài cùng wheel theo [hướng dẫn cài chu
 
 Bản v0.7 chỉ giữ client/server. Gateway inbound Codex, bảy tool `hermes_*`, plugin
 Hermes `codex_a2a` và bộ cài legacy đã được gỡ khỏi sản phẩm. Khi nâng cấp, làm
-[di trú và dọn cài đặt cũ](migration-v0.7.md), giữ dữ liệu/khóa của broker hiện tại.
+[di trú và dọn cài đặt cũ](../upgrades/migration-v0.7.md), giữ dữ liệu/khóa của broker hiện tại.
 SSH tunnel là tùy chọn phía client; broker và Hermes tiếp tục dùng cùng HTTPS/A2A.
 
 ## Điều kiện trước khi thay đổi
@@ -26,7 +26,7 @@ Chuẩn bị trước:
 - Một Hermes đang hoạt động dưới một tài khoản Unix riêng, với A2A nội bộ đã xác
   thực và chỉ nghe `127.0.0.1:9900`.
 - PostgreSQL 16 trên cùng máy, một database riêng cho broker.
-- CPython 3.11 và wheel `v0.10.0` đã được xác minh theo
+- CPython 3.11 và wheel `v0.11.0` đã được xác minh theo
   [hướng dẫn cài chung](deployment.md#install-the-same-release-on-both-machines).
 - DNS/private VPN và một reverse proxy TLS có CA được máy Codex tin cậy.
 
@@ -400,7 +400,7 @@ xem ví dụ upload và bài kiểm tra đầu cuối trong [hướng dẫn clie
 
 ## Nguồn và giới hạn đã xác minh
 
-- [Contract client/server v0.7](client-server-contract.md) định nghĩa API,
+- [Contract client/server v0.7](../reference/client-server-contract.md) định nghĩa API,
   operation states, recovery và native delivery; `outcome_unknown` không phải
   kết quả cuối cùng.
 - [Triển khai v0.7](deployment.md) là nguồn cài wheel, retention,
@@ -413,7 +413,7 @@ xem ví dụ upload và bài kiểm tra đầu cuối trong [hướng dẫn clie
 ## Hội thoại dài và thông báo lỗi trong v0.8
 
 Đọc [hướng dẫn tiếng Anh dành cho AI](ai-operations.md) và
-[cài đặt/rollback patch Hermes](hermes-compatibility.md).
+[cài đặt/rollback patch Hermes](../reference/hermes-compatibility.md).
 Chỉ cài wheel gateway không thay đổi giới hạn hội thoại của Hermes. Kiểm tra
 `client-doctor.peer_policy`: cấu hình đúng trả về `sliding_window`, 5 yêu cầu
 trong 60 giây. Những peer khác giữ chính sách cũ.

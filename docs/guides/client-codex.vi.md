@@ -1,6 +1,6 @@
 # Client: cài đặt và sử dụng với Codex Desktop
 
-Hướng dẫn này dành cho **v0.10.0 client/server** của Hermes A2A Gateway. Codex trên máy cá nhân giao việc cho Hermes trên server; daemon giữ inbox local và lấy kết quả qua HTTPS/SSE. Package, lệnh và đăng ký MCP thống nhất tên `hermes-a2a-gateway`.
+Hướng dẫn này dành cho **v0.11.0 client/server** của Hermes A2A Gateway. Codex trên máy cá nhân giao việc cho Hermes trên server; daemon giữ inbox local và lấy kết quả qua HTTPS/SSE. Package, lệnh và đăng ký MCP thống nhất tên `hermes-a2a-gateway`.
 
 ```text
 Codex Desktop → MCP client-mcp → daemon + SQLite → HTTPS/SSE → server → Hermes
@@ -8,7 +8,7 @@ Codex Desktop → MCP client-mcp → daemon + SQLite → HTTPS/SSE → server �
       └── tham chiếu kết quả muộn ──┘
 ```
 
-Làm [hướng dẫn server](server-hermes.vi.md) trước, sau đó làm các bước bên dưới trên **máy chạy Codex**. Không cần cài Hermes hoặc PostgreSQL trên máy client. Đây là hướng dẫn cho cài mới; nếu máy đã có client đang hoạt động, làm [di trú v0.7](migration-v0.7.md) trước, giữ key, token và dữ liệu; không chạy bước tạo mới lên inbox đã có.
+Làm [hướng dẫn server](server-hermes.vi.md) trước, sau đó làm các bước bên dưới trên **máy chạy Codex**. Không cần cài Hermes hoặc PostgreSQL trên máy client. Đây là hướng dẫn cho cài mới; nếu máy đã có client đang hoạt động, làm [di trú v0.7](../upgrades/migration-v0.7.md) trước, giữ key, token và dữ liệu; không chạy bước tạo mới lên inbox đã có.
 
 ## 1. Chuẩn bị
 
@@ -17,7 +17,7 @@ Làm [hướng dẫn server](server-hermes.vi.md) trước, sau đó làm các b
 - Server đã sẵn sàng. Nhận ba thông tin qua kênh quản trị được xác thực: **HTTPS origin** (ví dụ `https://gateway.example.internal:9443`, không thêm `/v1`), **device token riêng cho máy này**, và **CA certificate** nếu server dùng CA riêng. Không nhận private key TLS hoặc encryption key của broker.
 - Máy client phải truy cập được mạng riêng/VPN của server, và hostname/IP trong URL phải khớp SAN của chứng chỉ. Không dùng `curl -k` hoặc tắt kiểm tra TLS.
 
-CI kiểm tra cài wheel sạch trên macOS và Linux. Bản v0.8 được kiểm chứng thêm từ artifact GitHub trên Mac/VPS. Luồng kết quả muộn đã được kiểm chứng trên macOS; không suy ra mọi bản Desktop hoặc Linux có hành vi wake giống nhau. Client dùng Unix socket, chưa hỗ trợ Windows. Adapter v0.10.0 chỉ cho phép CLI `0.154.0` và `0.155.0-alpha.9.2`, đồng thời kiểm tra schema queue; ngoài danh sách đó sẽ dùng cơ chế lấy kết quả chủ động nếu host vẫn cung cấp native MCP metadata. Xem [bằng chứng v0.8](testing-report-v0.8.0.md) và [các phiên bản đã kiểm chứng trước đó](history/testing-report-v0.6.0b1.md).
+CI kiểm tra cài wheel sạch trên macOS và Linux. Bản v0.8 được kiểm chứng thêm từ artifact GitHub trên Mac/VPS. Luồng kết quả muộn đã được kiểm chứng trên macOS; không suy ra mọi bản Desktop hoặc Linux có hành vi wake giống nhau. Client dùng Unix socket, chưa hỗ trợ Windows. Adapter v0.11.0 chỉ cho phép CLI `0.154.0` và `0.155.0-alpha.9.2`, đồng thời kiểm tra schema queue; ngoài danh sách đó sẽ dùng cơ chế lấy kết quả chủ động nếu host vẫn cung cấp native MCP metadata. Xem [bằng chứng v0.8](../reports/testing-report-v0.8.0.md) và [các phiên bản đã kiểm chứng trước đó](../history/testing-report-v0.6.0b1.md).
 
 Tìm CLI trong terminal. Đường dẫn bundle phụ thuộc tên ứng dụng thực tế:
 
@@ -316,7 +316,7 @@ Giữ state, config/key và wheel đã kiểm tra checksum để phục hồi. K
 ## Hội thoại dài và thông báo lỗi trong v0.8
 
 Đọc [hướng dẫn tiếng Anh dành cho AI](ai-operations.md) và
-[cài đặt/rollback patch Hermes](hermes-compatibility.md).
+[cài đặt/rollback patch Hermes](../reference/hermes-compatibility.md).
 Chỉ cài wheel gateway không thay đổi giới hạn hội thoại của Hermes. Kiểm tra
 `client-doctor.peer_policy`: cấu hình đúng trả về `sliding_window`, 5 yêu cầu
 trong 60 giây. Những peer khác giữ chính sách cũ.

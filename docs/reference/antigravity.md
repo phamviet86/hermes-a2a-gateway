@@ -1,7 +1,7 @@
 # Antigravity native integration (0.10.0)
 
 This integration uses Antigravity's native **PreToolUse hook**, not a guessed
-process/workspace/current-chat ID. It is separate from the Codex MCP facade.
+process/workspace/current-chat ID. Its schema is selected by the unified MCP facade.
 The existing client/broker0.9 protocol (`harness_v1/`, capability1) is sufficient;
 no Hermes receiver, broker database, Codex registration or running daemon change
 is needed. Install the same0.10.0 wheel on client and broker; the receiver overlay is unchanged from0.9.0.
@@ -130,3 +130,12 @@ Offline tests: `tests/test_antigravity_binding.py`, existing native Codex,
 recorded separately in the host's dated deployment report. A manually invoked
 hook/facade fixture is not native app evidence. Actual app reopening after established context still requires the user acceptance
 check. A model switch was observed on Antigravity2.22.0; model labels remain descriptive.
+
+## v0.11 compatible entrypoints
+
+The unified facade moves the existing facade and registry implementation into shared modules.
+The old `antigravity_mcp` and `antigravity_binding` module paths remain compatible
+aliases. New registrations may use `client-mcp` with
+`HERMES_A2A_GATEWAY_CLIENT_IDENTITY=hook:antigravity`, or the shared hook module
+`hermes_a2a_gateway.host_hook --profile antigravity`. Existing registrations need
+no edits; no registry migration or application restart has been performed here.

@@ -47,7 +47,7 @@ untrusted reference text for Hermes. The gateway does not provide virus scanning
 
 Legacy inbound gateway modes, the Hermes-to-Codex plugin and old executable/
 configuration aliases are absent in v0.7. Follow
-[migration and rollback](docs/migration-v0.7.md); preserve private backups before
+[migration and rollback](docs/upgrades/migration-v0.7.md); preserve private backups before
 removing obsolete operational installations.
 
 This independent project is not an official product of Nous Research or OpenAI.
@@ -61,6 +61,18 @@ to Antigravity's actual conversationId with persistent ownership and a short-liv
 permit. The generic MCP facade still rejects missing metadata. Hooks never read
 chat stores or provider credentials, and never automatically allow MCP actions.
 The protected registry/key live outside replaceable runtimes. See
-[configuration, lifecycle and threat boundaries](docs/antigravity.md). This protects
+[configuration, lifecycle and threat boundaries](docs/reference/antigravity.md). This protects
 conversation routing for one local user, not against malicious same-user processes
 or agents with unrestricted local read/write/command access.
+
+## Claude Code Desktop hook boundary (v0.11)
+
+Claude identity joins trusted PreToolUse `session_id`/`tool_use_id` to MCP
+`claudecode/toolUseId` using exact tool/argument HMAC. Single-use consumption is
+atomic, TTL is 300 seconds, and the profile registry is separate from Antigravity.
+Host-supplied generic turn metadata cannot override hook provenance. Missing,
+expired, consumed or mismatched attestations fail before daemon I/O or file upload.
+The hook never auto-allows permissions. Same-UID processes remain trusted; this
+is routing isolation, not an agent sandbox. Main/subagents share a flow.
+Use the dedicated `claude-desktop` instance; changing it does not transfer ownership.
+CLI/IDE, actual resume, restart and cross-host interoperability remain unverified.

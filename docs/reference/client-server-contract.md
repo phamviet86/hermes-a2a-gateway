@@ -124,7 +124,7 @@ a specific safe validation error. `gateway_wait.timeout` also accepts [0, 60].
 SSH transport is a daemon lifecycle concern, not a new A2A operation. It retains TLS,
 device authentication, exact native origin binding, persisted cursors and operation
 identity. SSH reconnect must not imply resending ambiguous Hermes work or native
-queue insertion. Direct mode remains the default. See [SSH transport](ssh-tunnel.vi.md).
+queue insertion. Direct mode remains the default. See [SSH transport](../guides/ssh-tunnel.vi.md).
 
 ## v0.8 structured peer diagnostics and active policy
 

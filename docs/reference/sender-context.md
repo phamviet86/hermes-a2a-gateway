@@ -93,7 +93,7 @@ not prove deployed Helen has loaded this patch or verified the model label.
 5. Restart/refresh components only within an authorized deployment, then verify a
    harmless authorized request at Helen and read back its exact conversation entry.
 
-For0.9, use the [ordered upgrade/rollback guide](upgrade-v0.9.md), including the
-separate strict overlay for the tested newer receiver. See [candidate verification](testing-report-v0.9.0.md)
+For0.9, use the [ordered upgrade/rollback guide](../upgrades/upgrade-v0.9.md), including the
+separate strict overlay for the tested newer receiver. See [candidate verification](../reports/testing-report-v0.9.0.md)
 for actual live evidence and limitations; installing a wheel alone does not prove
 receiver support or native non-Codex application integration.

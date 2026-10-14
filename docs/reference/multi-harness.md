@@ -80,3 +80,23 @@ They never participate in the scoped routing key.
 Antigravity2.22.0 supplies conversation identity through its native lifecycle hook.
 The dedicated [Antigravity facade](antigravity.md) attests exact MCP requests with that
 host identity; the generic facade still requires trusted MCP metadata.
+
+## v0.11 provider selection
+
+The MCP facade accepts `HERMES_A2A_GATEWAY_CLIENT_IDENTITY` in the MCP process.
+`codex-meta` requires harness `codex`; `hermes-meta` requires a non-Codex harness;
+`hook:antigravity` requires `antigravity`; `hook:claude` requires `claude`. Unset preserves the existing metadata
+provider for each harness. Unsupported provider/harness pairs fail at startup
+with a fixed diagnostic. No identity value comes from tool arguments.
+
+The unified `client-mcp` entrypoint selects the established Codex or Antigravity
+schema and instructions. The Antigravity module remains an alias and selects
+`hook:antigravity`; conflicting explicit configuration is rejected. The shared
+hook runs as `python -m hermes_a2a_gateway.host_hook --profile antigravity`.
+The old hook module is still supported. Paths, key files, table definition,
+120-second renewable attestations and permanent key ownership are unchanged.
+
+Claude Code Desktop uses `hook:claude` and the dedicated stable instance
+`claude-desktop`. See [Claude contract](claude-code.md). CLI/IDE, actual resume,
+process restart and CLI/Desktop interoperability remain unverified. The
+single-conversation provider is not implemented.

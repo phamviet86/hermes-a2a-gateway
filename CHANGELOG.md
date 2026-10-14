@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.11.0 — 2026-10-14
+
+- Unified MCP facade with operator-selected metadata and hook identity providers;
+  existing Codex/Antigravity schemas, instructions, registry paths and IDs preserved.
+- Claude Code Desktop PreToolUse identity, single-use 300-second HMAC attestations,
+  dedicated `claude-desktop` instance and explicit get/wait results. Main/subagents
+  share the parent flow; fork/clear begin a new one when the host changes identity.
+- CLI/IDE, actual resume, process restart and CLI/Desktop interoperability remain
+  unverified. The operator accepted a Desktop-first gate on 2026-10-14; the original
+  full matrix was not claimed passed. No degraded single-conversation mode.
+
+- Reorganize `docs/` into `guides/`, `reference/`, `upgrades/`, `proposals/` and `reports/` with a documentation map; move reports without content changes; remove the redundant `client-server-deployment.md` stub.
+- Restructure `AGENTS.md` with repository/documentation navigation for AI agents; invariants unchanged.
+- Add the unified MCP identity proposal (planned Claude Code integration); not implemented.
+
 ## 0.10.0 — 2026-10-12
 
 - Add dedicated Antigravity MCP facade and persistent PreToolUse request bindings.

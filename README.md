@@ -4,15 +4,15 @@
 
 English | [Tiếng Việt](README.vi.md)
 
-Hermes A2A Gateway connects Codex Desktop and Antigravity to Hermes on a private server. The client
+Hermes A2A Gateway connects Codex Desktop, Claude Code Desktop and Antigravity to Hermes on a private server. The client
 owns a durable local inbox and optional SSH tunnel; the broker owns a PostgreSQL
 ledger and dispatches work to the server's loopback Hermes A2A endpoint.
 
-**Release: v0.10.0.** Adds native Antigravity host-hook integration, three descriptive sender fields, trusted harness isolation
+**Version: v0.11.0.** Adds Claude Code Desktop and native Antigravity host-hook integration, three descriptive sender fields, trusted harness isolation
 and reliability fixes while preserving existing IDs, credentials and conversations.
 Antigravity defaults to `Gemini model`; explicit model labels keep the same flow.
-See [installation](docs/deployment.md), [upgrade/rollback](docs/upgrade-v0.9.md),
-[release notes](docs/release-notes.md) and [review findings](docs/review-2026-10-12.md).
+See [installation](docs/guides/deployment.md), [upgrade/rollback](docs/upgrades/upgrade-v0.11.md),
+[release notes](docs/release-notes.md) and [review findings](docs/reports/review-2026-10-12.md).
 Package, command and MCP registration remain `hermes-a2a-gateway`.
 
 ```text
@@ -30,14 +30,14 @@ and arbitrary Hermes-initiated Desktop jobs are not implemented.
 ## Install and use
 
 Install the same release wheel on both machines; a Git clone is unnecessary.
-Start with the [release download/checksum instructions](docs/deployment.md#install-the-same-release-on-both-machines).
+Start with the [release download/checksum instructions](docs/guides/deployment.md#install-the-same-release-on-both-machines).
 
 | Machine or task | Guide |
 | --- | --- |
-| Private server running Hermes | [Server installation and operation (Vietnamese)](docs/server-hermes.vi.md) |
-| Workstation running Codex Desktop | [Client installation and five-tool usage (Vietnamese)](docs/client-codex.vi.md) |
-| Direct LAN/VPN or managed SSH connection | [SSH configuration, retries and diagnostics (Vietnamese)](docs/ssh-tunnel.vi.md) |
-| Existing v0.6 or legacy installation | [Migration, removal and rollback](docs/migration-v0.7.md) |
+| Private server running Hermes | [Server installation and operation (Vietnamese)](docs/guides/server-hermes.vi.md) |
+| Workstation running Codex Desktop | [Client installation and five-tool usage (Vietnamese)](docs/guides/client-codex.vi.md) |
+| Direct LAN/VPN or managed SSH connection | [SSH configuration, retries and diagnostics (Vietnamese)](docs/guides/ssh-tunnel.vi.md) |
+| Existing v0.6 or legacy installation | [Migration, removal and rollback](docs/upgrades/migration-v0.7.md) |
 
 Only four commands are installed:
 
@@ -57,7 +57,7 @@ codex mcp get hermes-a2a-gateway
 ```
 
 Set `tool_timeout_sec = 90` in the existing `[mcp_servers.hermes-a2a-gateway]`
-Codex configuration table, as shown in the [client guide](docs/client-codex.vi.md).
+Codex configuration table, as shown in the [client guide](docs/guides/client-codex.vi.md).
 
 The daemon must be running before using tools. SSH belongs to the daemon, not to
 individual MCP calls or Desktop tasks. Server credentials and encryption keys stay
@@ -98,8 +98,8 @@ local repository files are not automatically synchronized.
   does not support Windows. Native Desktop behavior must be verified separately
   from package installation or simulated reconnect tests.
 
-See the [wire contract](docs/client-server-contract.md), [deployment reference](docs/deployment.md),
-[release notes](docs/release-notes.md), [historical v0.8 verification](docs/testing-report-v0.8.0.md),
+See the [wire contract](docs/reference/client-server-contract.md), [deployment reference](docs/guides/deployment.md),
+[release notes](docs/release-notes.md), [historical v0.8 verification](docs/reports/testing-report-v0.8.0.md),
 and [historical evidence](docs/history/README.md).
 
 ## Development
@@ -123,16 +123,26 @@ and [SECURITY.md](SECURITY.md). Licensed under [Apache-2.0](LICENSE).
 
 ## Long conversations and actionable errors (0.8)
 
-See the [English AI operating guide](docs/ai-operations.md) and [versioned Hermes compatibility patch](docs/hermes-compatibility.md). The gateway wheel alone does not remove the receiver's legacy conversation limit. Verify the authenticated peer policy with `client-doctor`. Keep the same context, observe existing operations with get/wait, and never blindly resend ambiguous work.
+See the [English AI operating guide](docs/guides/ai-operations.md) and [versioned Hermes compatibility patch](docs/reference/hermes-compatibility.md). The gateway wheel alone does not remove the receiver's legacy conversation limit. Verify the authenticated peer policy with `client-doctor`. Keep the same context, observe existing operations with get/wait, and never blindly resend ambiguous work.
 
 ## Multi-harness adapters
 
-See [trusted multi-harness contract](docs/multi-harness.md) for operator-configured
+See [trusted multi-harness contract](docs/reference/multi-harness.md) for operator-configured
 harness/instance isolation, required host metadata and explicit-pull delivery limits.
 
-[Sender labels](docs/sender-context.md) describe the calling harness and selected
+[Sender labels](docs/reference/sender-context.md) describe the calling harness and selected
 model per request, preserve conversation continuity, and require matching receiver
 support. They do not authenticate or verify model capabilities.
 
 
-Antigravity native integration: [setup and limits](docs/antigravity.md) · [hướng dẫn cài đặt](docs/client-antigravity.vi.md).
+Antigravity native integration: [setup and limits](docs/reference/antigravity.md) · [hướng dẫn cài đặt](docs/guides/client-antigravity.vi.md).
+
+## Claude Code Desktop in v0.11.0
+
+The unified facade adds `hook:claude` with a dedicated `claude-desktop` instance,
+300-second single-use native hook attestations and explicit get/wait results.
+Existing Codex/Antigravity schemas and identities are unchanged. CLI/IDE, actual
+resume, process restart and CLI/Desktop interoperability remain unverified.
+See [Claude contract](docs/reference/claude-code.md),
+[Desktop setup](docs/guides/client-claude.vi.md) and [proposal status](docs/proposals/README.md).
+See the versioned GitHub release for published assets; local build artifacts are not release provenance.

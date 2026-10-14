@@ -1,4 +1,4 @@
-# Antigravity: cài v0.10.0 và giữ riêng từng hội thoại
+# Antigravity: cài v0.11.0 và giữ riêng từng hội thoại
 
 Bản này dùng native PreToolUse hook của Antigravity2.22.0 và MCP riêng để giữ
 conversation ID. Mỗi chat có flow riêng; đổi model không tạo flow mới. Codex dùng
@@ -7,7 +7,7 @@ nhãn model được đổi bằng tham số `model`, không tự xác minh back
 
 ## 1. Client daemon phải hoạt động
 
-Client và server cài cùng wheel v0.10.0. Máy mới cần Python3.11, daemon, HTTPS/device
+Client và server cài cùng wheel v0.11.0. Máy mới cần Python3.11, daemon, HTTPS/device
 token/CA riêng theo [hướng dẫn client](client-codex.vi.md) và [SSH nếu dùng](ssh-tunnel.vi.md).
 Antigravity chỉ dùng explicit get/wait; các yêu cầu Codex/native queue trong hướng
 dẫn đó chỉ áp dụng khi dùng Codex. Không sao chép inbox/keys của thiết bị khác;
@@ -17,7 +17,7 @@ Nếu máy đã có client: giữ nguyên cấu hình, device ID, token, payload
 Dừng đúng service daemon đang dùng, chờ writer.lock được nhả, sao lưu nhất quán
 SQLite (SQLite backup API) cùng cấu hình/khóa ở nơi riêng, rồi thay code bằng wheel
 đã xác minh và khởi động lại đúng một daemon. Giữ wheel/venv cũ để rollback code;
-không phục hồi DB cũ đè lên công việc mới. Xem [upgrade/rollback](upgrade-v0.9.md)
+không phục hồi DB cũ đè lên công việc mới. Xem [upgrade/rollback](../upgrades/upgrade-v0.9.md)
 cho các nguyên tắc và receiver overlay; nâng0.9→0.10 không thay receiver/schema.
 Không chạy khối cài mới nếu venv hoặc inbox đã tồn tại.
 
@@ -26,10 +26,10 @@ Tải đủ assets để kiểm tra toàn bộ SHA256SUMS (khối này chỉ t�
 ```bash
 (
 set -eu
-release_dir="$HOME/.local/share/hermes-a2a-gateway/releases/0.10.0"
+release_dir="$HOME/.local/share/hermes-a2a-gateway/releases/0.11.0"
 mkdir -p "$release_dir"
-release_url=https://github.com/phamviet86/hermes-a2a-gateway/releases/download/v0.10.0
-for asset in hermes_a2a_gateway-0.10.0-py3-none-any.whl hermes_a2a_gateway-0.10.0.tar.gz hermes-a2a-compat.patch hermes-a2a-compat.json hermes-a2a-sender-722bced.patch hermes-a2a-sender-722bced.json hermes_patch.py SHA256SUMS; do
+release_url=https://github.com/phamviet86/hermes-a2a-gateway/releases/download/v0.11.0
+for asset in hermes_a2a_gateway-0.11.0-py3-none-any.whl hermes_a2a_gateway-0.11.0.tar.gz hermes-a2a-compat.patch hermes-a2a-compat.json hermes-a2a-sender-722bced.patch hermes-a2a-sender-722bced.json hermes_patch.py SHA256SUMS; do
   curl --fail --location --output "$release_dir/$asset" "$release_url/$asset"
 done
 if command -v shasum >/dev/null 2>&1; then
@@ -45,7 +45,7 @@ của Hermes), rồi chạy pip check và khởi động daemon theo service đa
 
 ```bash
 "$HOME/.local/share/hermes-a2a-gateway/venv/bin/python" -m pip install \
-  "$HOME/.local/share/hermes-a2a-gateway/releases/0.10.0/hermes_a2a_gateway-0.10.0-py3-none-any.whl"
+  "$HOME/.local/share/hermes-a2a-gateway/releases/0.11.0/hermes_a2a_gateway-0.11.0-py3-none-any.whl"
 "$HOME/.local/share/hermes-a2a-gateway/venv/bin/python" -m pip check
 "$HOME/.config/hermes-a2a-gateway/launch" client-doctor
 ```
@@ -66,7 +66,7 @@ import json, os, shlex, shutil, tempfile
 from pathlib import Path
 from importlib.metadata import version
 os.umask(0o077)
-assert version('hermes-a2a-gateway') == '0.10.0'
+assert version('hermes-a2a-gateway') == '0.11.0'
 home = Path.home()
 python = home / '.local/share/hermes-a2a-gateway/venv/bin/python'
 base = home / '.gemini/config'
@@ -115,7 +115,7 @@ PY
 
 Nếu daemon dùng state/socket tùy chỉnh, facade cần cùng
 `HERMES_A2A_GATEWAY_CLIENT_STATE_DIR`.
-Hợp nhất giá trị đúng theo [technical guide](antigravity.md); không đoán hoặc tạo
+Hợp nhất giá trị đúng theo [technical guide](../reference/antigravity.md); không đoán hoặc tạo
 identity bằng model. Quyền Ask của app vẫn áp dụng; hook không tự auto-allow tool.
 
 ## 3. Mở lại và thử
