@@ -11,8 +11,6 @@
   unverified. The operator accepted a Desktop-first gate on 2026-10-14; the original
   full matrix was not claimed passed. No degraded single-conversation mode.
 
-## Unreleased
-
 - Reorganize `docs/` into `guides/`, `reference/`, `upgrades/`, `proposals/` and `reports/` with a documentation map; move reports without content changes; remove the redundant `client-server-deployment.md` stub.
 - Restructure `AGENTS.md` with repository/documentation navigation for AI agents; invariants unchanged.
 - Add the unified MCP identity proposal (planned Claude Code integration); not implemented.

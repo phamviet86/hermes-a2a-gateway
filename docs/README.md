@@ -1,6 +1,6 @@
 # Documentation map
 
-Candidate: **v0.11.0**; published baseline: **v0.10.0**. Start from the repository [README](../README.md) for the
+Version documented: **v0.11.0**. Release artifacts and their provenance are on the versioned GitHub release. Start from the repository [README](../README.md) for the
 product summary; use this page to find the right document. AI agents should read
 [AGENTS.md](../AGENTS.md) first.
 
@@ -75,3 +75,5 @@ and [unified MCP Phase 1 local verification](reports/unified-mcp-phase1-2026-10-
   excluded from the sdist; never commit or link them.
 
 Candidate verification: [v0.11.0 tests and live Desktop scope](reports/testing-report-v0.11.0.md).
+
+Upgrade: [v0.10 to v0.11](upgrades/upgrade-v0.11.md).
