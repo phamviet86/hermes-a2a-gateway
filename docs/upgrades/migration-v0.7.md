@@ -26,7 +26,7 @@ list/get`, installed distributions, external Hermes plugins and old generated sk
 Distinguish actual operational installs from source checkouts and active development
 venvs. Preserve unrelated Codex parents, workspaces, profiles, SSH tunnels and apps.
 
-Follow [release installation](deployment.md#install-the-same-release-on-both-machines)
+Follow [release installation](../guides/deployment.md#install-the-same-release-on-both-machines)
 in a new dedicated venv. Use an independent Python 3.11 interpreter outside any old
 root scheduled for removal: a venv symlink may still depend on an old deployment's
 bundled Python. Verify `sys.base_prefix` and the resolved interpreter before cleanup.
@@ -71,7 +71,7 @@ Suggested service names: `com.hermes.a2a.gateway.client` (macOS),
 configuration aliases. Do not regenerate payload or broker keys during this mapping.
 
 For SSH mode, keep the existing SSH alias/key, configure the actual VPS TLS destination
-and local port, and follow [SSH setup](ssh-tunnel.vi.md). Strict host-key and TLS
+and local port, and follow [SSH setup](../guides/ssh-tunnel.vi.md). Strict host-key and TLS
 verification remain enabled. Start one canonical broker/proxy and one client daemon,
 then register the new MCP facade through its private launcher.
 

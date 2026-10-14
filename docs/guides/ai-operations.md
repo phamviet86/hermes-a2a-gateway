@@ -82,6 +82,6 @@ and the requested real-world result. For an edited document, verify the actual
 document and read-back; a delegation receipt is insufficient. For deployment,
 verify installed release provenance, health and a real application request.
 
-See [the contract](client-server-contract.md), [deployment](deployment.md), and
-[Hermes compatibility](hermes-compatibility.md). Historical test reports describe
+See [the contract](../reference/client-server-contract.md), [deployment](deployment.md), and
+[Hermes compatibility](../reference/hermes-compatibility.md). Historical test reports describe
 only their tested versions and scenarios.

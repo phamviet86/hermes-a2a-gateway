@@ -1,6 +1,6 @@
 # Upgrade 0.8 → 0.9 without replacing data or identities
 
-Use [fresh installation](deployment.md) if no gateway is installed. Existing users
+Use [fresh installation](../guides/deployment.md) if no gateway is installed. Existing users
 keep the same CPython 3.11 venv path, configuration, credentials, state directories,
 PostgreSQL database, device IDs, contexts and MCP registration. Install into the
 independent gateway environment; never into Hermes's environment. The public

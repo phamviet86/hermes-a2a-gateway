@@ -5,5 +5,5 @@ They are retained as historical evidence; do not use them to install v0.7. Origi
 relative links may refer to the repository layout at that release. The complete
 original layout remains available in the corresponding Git tag.
 
-Use [current deployment](../deployment.md), [server](../server-hermes.vi.md),
-[client](../client-codex.vi.md), and [migration](../migration-v0.7.md) instead.
+Use [current deployment](../guides/deployment.md), [server](../guides/server-hermes.vi.md),
+[client](../guides/client-codex.vi.md), and [migration](../upgrades/migration-v0.7.md) instead.

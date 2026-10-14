@@ -16,7 +16,7 @@ khác nhau: SSH tới domain public, rồi forward tới IP private của TLS pr
 Không forward trực tiếp vào HTTP broker `8790` rồi tắt TLS để tránh cấu hình chứng chỉ.
 
 Trước tiên hoàn thành [server](server-hermes.vi.md) và tạo private launcher/config
-ở bước 3 của [client](client-codex.vi.md). Nếu đang nâng cấp, làm [di trú](migration-v0.7.md).
+ở bước 3 của [client](client-codex.vi.md). Nếu đang nâng cấp, làm [di trú](../upgrades/migration-v0.7.md).
 
 ## Direct: mặc định
 
@@ -135,7 +135,7 @@ những trường hợp đã chạy và chưa chạy trong báo cáo triển kha
 ## Hội thoại dài và thông báo lỗi trong v0.8
 
 Đọc [hướng dẫn tiếng Anh dành cho AI](ai-operations.md) và
-[cài đặt/rollback patch Hermes](hermes-compatibility.md).
+[cài đặt/rollback patch Hermes](../reference/hermes-compatibility.md).
 Chỉ cài wheel gateway không thay đổi giới hạn hội thoại của Hermes. Kiểm tra
 `client-doctor.peer_policy`: cấu hình đúng trả về `sliding_window`, 5 yêu cầu
 trong 60 giây. Những peer khác giữ chính sách cũ.

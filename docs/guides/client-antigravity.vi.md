@@ -17,7 +17,7 @@ Nếu máy đã có client: giữ nguyên cấu hình, device ID, token, payload
 Dừng đúng service daemon đang dùng, chờ writer.lock được nhả, sao lưu nhất quán
 SQLite (SQLite backup API) cùng cấu hình/khóa ở nơi riêng, rồi thay code bằng wheel
 đã xác minh và khởi động lại đúng một daemon. Giữ wheel/venv cũ để rollback code;
-không phục hồi DB cũ đè lên công việc mới. Xem [upgrade/rollback](upgrade-v0.9.md)
+không phục hồi DB cũ đè lên công việc mới. Xem [upgrade/rollback](../upgrades/upgrade-v0.9.md)
 cho các nguyên tắc và receiver overlay; nâng0.9→0.10 không thay receiver/schema.
 Không chạy khối cài mới nếu venv hoặc inbox đã tồn tại.
 
@@ -115,7 +115,7 @@ PY
 
 Nếu daemon dùng state/socket tùy chỉnh, facade cần cùng
 `HERMES_A2A_GATEWAY_CLIENT_STATE_DIR`.
-Hợp nhất giá trị đúng theo [technical guide](antigravity.md); không đoán hoặc tạo
+Hợp nhất giá trị đúng theo [technical guide](../reference/antigravity.md); không đoán hoặc tạo
 identity bằng model. Quyền Ask của app vẫn áp dụng; hook không tự auto-allow tool.
 
 ## 3. Mở lại và thử

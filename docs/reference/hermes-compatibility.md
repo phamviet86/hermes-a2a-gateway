@@ -82,5 +82,5 @@ Local client snapshots keep the existing SQLite result model: restrictive file p
 The separate `hermes-a2a-sender-722bced.json/.patch` assets apply only to the exact
 already-patched baseline at Hermes `722bcedb382ef632aeb262b80bcfbff5a902494b`.
 They preserve the existing policy and unrelated modifications. See
-[ordered upgrade and rollback](upgrade-v0.9.md). The default patch still targets
+[ordered upgrade and rollback](../upgrades/upgrade-v0.9.md). The default patch still targets
 `490e6b5`; neither variant permits a force apply or arbitrary revision.

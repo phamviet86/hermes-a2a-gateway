@@ -6,7 +6,7 @@
 qua MCP, daemon/inbox local và broker PostgreSQL. Client hỗ trợ HTTPS trực tiếp
 qua LAN/VPN hoặc HTTPS bên trong SSH tunnel do daemon quản lý.
 
-Bản 0.10 thêm native hook cho Antigravity để giữ riêng conversation ID, retry và kết quả. Xem [cài Antigravity](docs/client-antigravity.vi.md). Ba trường sender và cách ly harness từ0.9 được giữ nguyên; đổi nhãn model giữ cùng cuộc trò chuyện. Xem [nâng cấp/rollback](docs/upgrade-v0.9.md).
+Bản 0.10 thêm native hook cho Antigravity để giữ riêng conversation ID, retry và kết quả. Xem [cài Antigravity](docs/guides/client-antigravity.vi.md). Ba trường sender và cách ly harness từ0.9 được giữ nguyên; đổi nhãn model giữ cùng cuộc trò chuyện. Xem [nâng cấp/rollback](docs/upgrades/upgrade-v0.9.md).
 
 Tên package, lệnh và đăng ký MCP thống nhất **`hermes-a2a-gateway`**. Namespace
 Python là `hermes_a2a_gateway`, biến môi trường dùng `HERMES_A2A_GATEWAY_*`.
@@ -23,13 +23,13 @@ Codex Desktop → MCP → client daemon + SQLite
 
 | Nơi thực hiện | Hướng dẫn |
 | --- | --- |
-| VPS/server chạy Hermes | [Cài và sử dụng server](docs/server-hermes.vi.md) |
-| Máy cá nhân chạy Codex | [Cài và sử dụng client](docs/client-codex.vi.md) |
-| Chọn kết nối trực tiếp/SSH | [SSH tunnel và phục hồi mất mạng](docs/ssh-tunnel.vi.md) |
-| Máy đang có bản cũ | [Di trú, gỡ cài đặt cũ và rollback](docs/migration-v0.7.md) |
+| VPS/server chạy Hermes | [Cài và sử dụng server](docs/guides/server-hermes.vi.md) |
+| Máy cá nhân chạy Codex | [Cài và sử dụng client](docs/guides/client-codex.vi.md) |
+| Chọn kết nối trực tiếp/SSH | [SSH tunnel và phục hồi mất mạng](docs/guides/ssh-tunnel.vi.md) |
+| Máy đang có bản cũ | [Di trú, gỡ cài đặt cũ và rollback](docs/upgrades/migration-v0.7.md) |
 
 Hai máy cài cùng release wheel từ GitHub, có kiểm tra SHA256, không cần clone repo.
-Đọc [lệnh tải và cài release](docs/deployment.md#install-the-same-release-on-both-machines).
+Đọc [lệnh tải và cài release](docs/guides/deployment.md#install-the-same-release-on-both-machines).
 Server cấp HTTPS origin, token riêng cho thiết bị và CA nếu cần; khóa mã hóa broker
 không chuyển sang client.
 
@@ -72,19 +72,19 @@ best-effort; vòng hỏi/đáp human input qua broker chưa được hỗ trợ.
 
 Cài wheel được kiểm tra trên macOS/Linux với Python 3.11; Windows chưa hỗ trợ.
 Khả năng native Desktop và sleep/wake phải có bằng chứng riêng, không suy ra từ
-việc cài package thành công. Xem [hợp đồng](docs/client-server-contract.md),
+việc cài package thành công. Xem [hợp đồng](docs/reference/client-server-contract.md),
 [release notes](docs/release-notes.md) và [báo cáo lịch sử](docs/history/README.md).
 
 Đây là dự án cộng đồng độc lập, không phải sản phẩm chính thức của OpenAI hoặc
 Nous Research. Codex Desktop là tích hợp đầu tiên; chưa có adapter cho mọi AI agent
 hay API cho Hermes tự tạo task Desktop.
 
-Xem [nâng cấp và rollback v0.9](docs/upgrade-v0.9.md) và [bằng chứng v0.8 trước đây](docs/testing-report-v0.8.0.md).
+Xem [nâng cấp và rollback v0.9](docs/upgrades/upgrade-v0.9.md) và [bằng chứng v0.8 trước đây](docs/reports/testing-report-v0.8.0.md).
 
 ## Hội thoại dài và thông báo lỗi trong v0.8
 
-Đọc [hướng dẫn tiếng Anh dành cho AI](docs/ai-operations.md) và
-[cài đặt/rollback patch Hermes](docs/hermes-compatibility.md).
+Đọc [hướng dẫn tiếng Anh dành cho AI](docs/guides/ai-operations.md) và
+[cài đặt/rollback patch Hermes](docs/reference/hermes-compatibility.md).
 Chỉ cài wheel gateway không thay đổi giới hạn hội thoại của Hermes. Kiểm tra
 `client-doctor.peer_policy`: cấu hình đúng trả về `sliding_window`, 5 yêu cầu
 trong 60 giây. Những peer khác giữ chính sách cũ.
@@ -97,12 +97,22 @@ Khi bị giới hạn, đọc `error.details.retry_at`; không tự gửi lại 
 
 ## Multi-harness adapters
 
-See [trusted multi-harness contract](docs/multi-harness.md) for operator-configured
+See [trusted multi-harness contract](docs/reference/multi-harness.md) for operator-configured
 harness/instance isolation, required host metadata and explicit-pull delivery limits.
 
-[Sender labels](docs/sender-context.md) describe the calling harness and selected
+[Sender labels](docs/reference/sender-context.md) describe the calling harness and selected
 model per request, preserve conversation continuity, and require matching receiver
 support. They do not authenticate or verify model capabilities.
 
 
-Antigravity native integration: [setup and limits](docs/antigravity.md) · [hướng dẫn cài đặt](docs/client-antigravity.vi.md).
+Antigravity native integration: [setup and limits](docs/reference/antigravity.md) · [hướng dẫn cài đặt](docs/guides/client-antigravity.vi.md).
+
+## Bản ứng viên v0.11.0: Claude Code Desktop
+
+Facade dùng chung bổ sung `hook:claude`, instance riêng `claude-desktop`, xác thực
+native hook dùng một lần trong 300 giây và đọc kết quả bằng get/wait.
+Schema và định danh Codex/Antigravity hiện có được giữ nguyên. CLI/IDE, resume
+thực tế, khởi động lại process và liên thông CLI/Desktop chưa được xác minh.
+Xem [hợp đồng Claude](docs/reference/claude-code.md),
+[hướng dẫn Desktop](docs/guides/client-claude.vi.md) và [trạng thái đề xuất](docs/proposals/README.md).
+Đây chưa phải bản phát hành cho đến khi hoàn tất các bước nghiệm thu phát hành.
