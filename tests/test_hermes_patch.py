@@ -16,6 +16,7 @@ import sys
 import threading
 import types
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
@@ -274,7 +275,8 @@ def test_http_auth_capabilities_forged_metadata_and_get(http_runtime):
     for token in (None, "wrong"):
         with pytest.raises(HTTPError) as exc:
             request(url + "/gateway-capabilities", token)
-        assert exc.value.code == 401
+        with closing(exc.value):
+            assert exc.value.code == 401
     capability = request(url + "/gateway-capabilities", "valid")
     assert capability["policy"] == "sliding_window" and capability["window_seconds"] == 60
     runtime.adapter._security_context = runtime.security.A2ASecurityContext(
@@ -302,7 +304,8 @@ def test_http_auth_capabilities_forged_metadata_and_get(http_runtime):
     )
     with pytest.raises(HTTPError) as exc:
         request(url + "/gateway-capabilities", "valid")
-    assert exc.value.code == 403
+    with closing(exc.value):
+        assert exc.value.code == 403
 
 
 def test_localhost_policy_secret_preserves_existing_unauthenticated_peers(http_runtime):
@@ -316,7 +319,8 @@ def test_localhost_policy_secret_preserves_existing_unauthenticated_peers(http_r
     for token in (None, "wrong"):
         with pytest.raises(HTTPError) as exc:
             request(url + "/gateway-capabilities", token)
-        assert exc.value.code == 401
+        with closing(exc.value):
+            assert exc.value.code == 401
     assert request(url + "/gateway-capabilities", "selector")["policy"] == "sliding_window"
     # Existing unauthenticated loopback submitters retain original legacy policy.
     body = {"jsonrpc": "2.0", "id": 1, "method": "SendMessage", "params": params("unselected")}
