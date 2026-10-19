@@ -23,15 +23,16 @@ any files. Keep its exclusive-create and private-permission checks:
 ```python
 from hermes_a2a_gateway.connections import config_path, state_path, connection_name
 
-name = connection_name("helen")  # choose a distinct name for each broker
-base = config_path(name)
-state = state_path("client", name)
+connection = connection_name("helen")  # choose a distinct name for each broker
+base = config_path(connection)
+state = state_path("client", connection)
 ```
 
-Add `HERMES_A2A_GATEWAY_CLIENT_CONNECTION: name` to that generator's `values`
+Add `"HERMES_A2A_GATEWAY_CLIENT_CONNECTION": connection` to that generator's `values`
 dictionary. The launcher must export this variable for the daemon, MCP process
-and native hook. Preserve all `HERMES_A2A_GATEWAY_*` keys from the private JSON
-instead of the old fixed allowlist. Obtain a newly authorized device token from
+and set the same non-secret value explicitly on the native hook. Use the expanded
+non-secret MCP allowlist in the current Codex launcher generator; never forward
+the daemon's token, current key or previous keys to the MCP/hook processes. Obtain a newly authorized device token from
 each broker owner and generate a fresh payload key for each connection. Do not
 copy the default connection's credentials. When using SSH, allocate a distinct
 local port and update the matching loopback HTTPS broker URL.
@@ -54,8 +55,12 @@ service manager per connection.
 Register the Claude and Antigravity MCP entries under the same derived name.
 For Claude, scope the PreToolUse matcher to `mcp__hermes-a2a-<name>__*`; for
 Antigravity, the wrapper's `ServerName` must equal `hermes-a2a-<name>`.
-Invoke each hook through this connection's launcher with the existing
-`--profile claude` or Antigravity hook module. Keep separate binding directories.
+Invoke each hook directly through the installed Python with this connection's
+non-secret environment (`HERMES_A2A_GATEWAY_CLIENT_CONNECTION=<name>` and any
+explicit server-name/binding-directory overrides), using `python -m
+hermes_a2a_gateway.host_hook --profile claude` or `--profile antigravity`. The
+standard CLI launcher accepts only client/client-mcp/client-doctor; do not pass
+a hook module to it. Keep separate binding directories.
 See [Claude](client-claude.vi.md) and [Antigravity](client-antigravity.vi.md).
 Do not register a second connection with the default MCP entry's name.
 

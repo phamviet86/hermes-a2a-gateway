@@ -1,6 +1,6 @@
-# Client/server v0.8 implementation contract
+# Client/server HTTP v1 contract
 
-Status: v0.8 candidate, 2026-09-21. This version retains the v0.6
+Status: v0.12 candidate, 2026-10-19. This version retains the v0.6
 client/server ledger contract and removes legacy commands and adapters. It does not claim exactly-once execution or
 delivery. Initial topology: one owner, multiple devices, one broker process,
 PostgreSQL ledger, client SQLite and private HTTPS transport.

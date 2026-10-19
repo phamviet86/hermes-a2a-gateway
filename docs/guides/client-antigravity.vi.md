@@ -1,5 +1,7 @@
 # Antigravity: cài v0.11.0 và giữ riêng từng hội thoại
 
+English: [Quickstart](quickstart.md).
+
 Named brokers: [Client connections](client-connections.md).
 
 Bản này dùng native PreToolUse hook của Antigravity2.22.0 và MCP riêng để giữ

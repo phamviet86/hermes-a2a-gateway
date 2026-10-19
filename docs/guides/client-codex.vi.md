@@ -1,5 +1,7 @@
 # Client: cài đặt và sử dụng với Codex Desktop
 
+English: [Quickstart](quickstart.md).
+
 Named brokers: [Client connections](client-connections.md).
 
 Hướng dẫn này dành cho **v0.11.0 client/server** của Hermes A2A Gateway. Codex trên máy cá nhân giao việc cho Hermes trên server; daemon giữ inbox local và lấy kết quả qua HTTPS/SSE. Package, lệnh và đăng ký MCP thống nhất tên `hermes-a2a-gateway`.
@@ -121,7 +123,16 @@ if mode == "client-mcp":
     # MCP chỉ cần socket và giới hạn upload, không cần credential của broker.
     values = {k: v for k, v in values.items() if k in {
         "HERMES_A2A_GATEWAY_CLIENT_STATE_DIR",
-        "HERMES_A2A_GATEWAY_CLIENT_MAX_UPLOAD_BYTES"}}
+        "HERMES_A2A_GATEWAY_CLIENT_MAX_UPLOAD_BYTES",
+        "HERMES_A2A_GATEWAY_CLIENT_CONNECTION",
+        "HERMES_A2A_GATEWAY_CLIENT_BROKER_URL",
+        "HERMES_A2A_GATEWAY_MCP_SERVER_NAME",
+        "HERMES_A2A_GATEWAY_CLIENT_HARNESS",
+        "HERMES_A2A_GATEWAY_CLIENT_HARNESS_INSTANCE",
+        "HERMES_A2A_GATEWAY_CLIENT_IDENTITY",
+        "HERMES_A2A_GATEWAY_CLIENT_MODEL",
+        "HERMES_A2A_GATEWAY_CLAUDE_BINDING_DIR",
+        "HERMES_A2A_GATEWAY_ANTIGRAVITY_BINDING_DIR"}}
 env.update(values)
 binary = str(Path(sys.executable).parent / "hermes-a2a-gateway")
 os.execve(binary, [binary, mode], env)

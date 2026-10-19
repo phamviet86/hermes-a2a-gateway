@@ -1,85 +1,58 @@
-# Documentation map
+# Documentation by task
 
-Version documented: **v0.11.0**. Release artifacts and their provenance are on the versioned GitHub release. Start from the repository [README](../README.md) for the
-product summary; use this page to find the right document. AI agents should read
-[AGENTS.md](../AGENTS.md) first.
+Current candidate: **v0.12.0**. Existing default connections retain v0.11 paths,
+identities and credentials. Python 3.12/3.13 remain candidates until the full
+Linux/macOS CI matrix passes. Versioned release assets establish provenance;
+local builds and fake peers do not establish production/Desktop acceptance.
 
-| Folder | Contains | Status |
-| --- | --- | --- |
-| [`guides/`](#guides) | Install, configure and operate a deployment | Current, maintained |
-| [`reference/`](#reference) | Normative contracts and integration boundaries | Current, maintained |
-| [`upgrades/`](#upgrades) | Version migration, upgrade and rollback procedures | Current for the named versions |
-| [`proposals/`](#proposals) | Designs approved for implementation but not yet shipped | Not current behavior |
-| [`reports/`](#reports) | Dated test/verification reports and reviews from v0.7 onward | Immutable evidence |
-| [`history/`](history/README.md) | Releases up to v0.6, retired modes and investigations | Immutable evidence |
-| [`release-notes.md`](release-notes.md) | Notes for the current release; read by `scripts/publish_release.py` | Current |
+## Install
 
-Named brokers: [Client connections](guides/client-connections.md).
+- [Quickstart](guides/quickstart.md): prerequisites and minimum steps per harness/server.
+- [Deployment](guides/deployment.md): verify release assets, install and operate both ends.
+- [Codex Desktop](guides/client-codex.vi.md): private launcher, MCP and native delivery.
+- [Claude Code Desktop](guides/client-claude.vi.md): project-local MCP/hook registration.
+- [Antigravity](guides/client-antigravity.vi.md): native wrapper/hook registration.
+- [Hermes server](guides/server-hermes.vi.md): PostgreSQL, TLS proxy and loopback peer.
 
-## Guides
+## Upgrade
 
-| Document | Use it for |
-| --- | --- |
-| [deployment.md](guides/deployment.md) | Shared release download/checksum, install, operations, upgrade and rollback reference |
-| [server-hermes.vi.md](guides/server-hermes.vi.md) | Server: Hermes, PostgreSQL, broker, TLS proxy (Vietnamese) |
-| [client-codex.vi.md](guides/client-codex.vi.md) | Workstation: client daemon and Codex Desktop MCP registration (Vietnamese) |
-| [client-antigravity.vi.md](guides/client-antigravity.vi.md) | Antigravity existing/new setup, scoped MCP restart and use prompts (Vietnamese) |
-| [client-claude.vi.md](guides/client-claude.vi.md) | Claude Code Desktop project setup, hook merge, use prompts and rollback |
-| [ssh-tunnel.vi.md](guides/ssh-tunnel.vi.md) | Direct vs daemon-managed SSH transport, retries, diagnostics (Vietnamese) |
-| [ai-operations.md](guides/ai-operations.md) | How an AI agent should use the five `gateway_*` tools safely |
+- [v0.11 → v0.12](upgrades/upgrade-v0.12.md): additive migrations, connections and rollback.
+- [v0.10 → v0.11](upgrades/upgrade-v0.11.md): unified MCP/hook rollout.
+- [v0.9](upgrades/upgrade-v0.9.md): ordered receiver overlay and rollback.
+- [v0.6/legacy → v0.7](upgrades/migration-v0.7.md): rename and data preservation.
 
-## Reference
+## Operate
 
-| Document | Defines |
-| --- | --- |
-| [client-server-contract.md](reference/client-server-contract.md) | Client ↔ broker wire contract, IDs, idempotence, SSE, receipts |
-| [multi-harness.md](reference/multi-harness.md) | Trusted harness/instance/conversation isolation and host metadata |
-| [sender-context.md](reference/sender-context.md) | Descriptive harness/model/connection labels delivered to Helen |
-| [antigravity.md](reference/antigravity.md) | Antigravity host-hook attestation, lifecycle, retries and limits |
-| [claude-code.md](reference/claude-code.md) | Claude Code Desktop host identity, lifecycle and unverified scope |
-| [hermes-compatibility.md](reference/hermes-compatibility.md) | Versioned Hermes receiver patch in `compat/hermes` |
+- [Client connections](guides/client-connections.md): one isolated daemon per broker.
+- [AI operations](guides/ai-operations.md): submit, recover IDs, wait, diagnose and report evidence.
 
-## Upgrades
+## Rotate
 
-| Document | Covers |
-| --- | --- |
-| [migration-v0.7.md](upgrades/migration-v0.7.md) | v0.6/legacy → v0.7 rename, removal of legacy modes, rollback |
-| [upgrade-v0.9.md](upgrades/upgrade-v0.9.md) | Ordered, data-preserving upgrade/rollback for v0.9 and later |
+- [Tokens and payload keys](guides/rotation.md): overlap, TTL, count-only diagnostics and removal gates.
 
-## Proposals
+## Troubleshoot
 
-Status, lifecycle and the rules for implementing a proposal are kept in one place:
-[proposals/README.md](proposals/README.md). Current proposals:
-[unified-mcp-identity.md](proposals/unified-mcp-identity.md) (adds Claude Code,
-target v0.11.0).
+- [SSH transport](guides/ssh-tunnel.vi.md): verified tunnels, reconnect and diagnostics.
+- Use the error-code table in the AI operations guide listed above. Silence or a lost
+  ACK never authorizes replay. Read current readiness before interpreting older evidence.
 
-A proposal describes intended work. It is not installation guidance and does not
-change current behavior until implemented, tested and released.
+## Contracts
 
-## Reports
+- [Client/server HTTP and SSE](reference/client-server-contract.md): ownership, snapshots and migrations.
+- [Multiple harnesses](reference/multi-harness.md): trusted identity and local isolation.
+- [Sender context](reference/sender-context.md): descriptive labels, not routing identity.
+- [Antigravity](reference/antigravity.md): native hook contract and limits.
+- [Claude Code](reference/claude-code.md): Desktop provenance and scope.
+- [Hermes compatibility](reference/hermes-compatibility.md): pinned receiver assets and timeout chain.
 
-Dated evidence for v0.7.0–v0.11.0 releases and the 2026-10-12 review; see
-[reports/README.md](reports/README.md). Add a new dated report for new live results;
-never rewrite an existing one.
+## Evidence and planning
 
-Pre-release v0.11.0 evidence: [Claude CLI spike, blocked](reports/claude-code-identity-spike-2026-10-14.md)
-and [unified MCP Phase 1 local verification](reports/unified-mcp-phase1-2026-10-14.md).
-[Attempt 2 Desktop live addendum](reports/claude-code-identity-spike-2026-10-14-attempt2.md) records 8/8 identity joins and remaining lifecycle gates. These reports do not establish v0.11.0 release acceptance.
+- [Release notes](release-notes.md): current candidate behavior and acceptance limits.
+- [Reports](reports/README.md): immutable dated verification, including installed v0.11 acceptance.
+- [History](history/README.md): retired releases/modes, not current setup instructions.
+- [Proposals](proposals/README.md): planned designs; status alone does not authorize implementation.
 
-## Placement rules
-
-- New how-to for operators → `guides/` (Vietnamese guides use the `.vi.md` suffix).
-- New or changed contract, protocol limit or trust boundary → `reference/`.
-- Version-specific migration → `upgrades/`.
-- Design that is not implemented yet → `proposals/`.
-- Live/test evidence → new dated file in `reports/`.
-- Private orchestration notes (`docs/worker-context-*.md`) are git-ignored and
-  excluded from the sdist; never commit or link them.
-
-Candidate verification: [v0.11.0 tests and live Desktop scope](reports/testing-report-v0.11.0.md).
-
-Upgrade: [v0.10 to v0.11](upgrades/upgrade-v0.11.md).
-
-Release provenance and the then-pending native checks: [v0.11.0 release/deployment evidence](reports/release-v0.11.0-2026-10-14.md).
-
-Latest native acceptance: [installed v0.11.0 attempt 5](reports/native-acceptance-v0.11.0-2026-10-14-attempt5.md) — Codex, Claude Desktop and Antigravity pass the scoped installed-release native submit/get gates.
+Ten pre-existing relative links inside reports/history refer to documents moved
+before v0.12. Those immutable files are preserved. The documentation link test
+records those exact legacy failures and rejects any new broken link; current
+guides, contracts and this index must resolve.

@@ -8,10 +8,10 @@ Hermes A2A Gateway connects Codex Desktop, Claude Code Desktop and Antigravity t
 owns a durable local inbox and optional SSH tunnel; the broker owns a PostgreSQL
 ledger and dispatches work to the server's loopback Hermes A2A endpoint.
 
-**Version: v0.11.0.** Adds Claude Code Desktop and native Antigravity host-hook integration, three descriptive sender fields, trusted harness isolation
-and reliability fixes while preserving existing IDs, credentials and conversations.
-Antigravity defaults to `Gemini model`; explicit model labels keep the same flow.
-See [installation](docs/guides/deployment.md), [upgrade/rollback](docs/upgrades/upgrade-v0.11.md),
+**Version: v0.12.0 candidate.** Adds named broker connections, conversation-scoped
+operation recovery, long-task diagnostics/liveness, text references and staged
+credential rotation. The default v0.11 setup keeps its paths and identities.
+See [installation](docs/guides/deployment.md), [upgrade/rollback](docs/upgrades/upgrade-v0.12.md),
 [release notes](docs/release-notes.md) and [review findings](docs/reports/review-2026-10-12.md).
 Package, command and MCP registration remain `hermes-a2a-gateway`.
 
@@ -27,6 +27,10 @@ This is an independent community project, not an official OpenAI or Nous Researc
 product. Codex Desktop is the first verified integration; other runtime adapters
 and arbitrary Hermes-initiated Desktop jobs are not implemented.
 
+Start with the [quickstart](docs/guides/quickstart.md) or
+[named connections](docs/guides/client-connections.md). Python 3.12/3.13 are CI
+candidates; release support stays 3.11 until the full Linux/macOS matrix passes.
+
 ## Install and use
 
 Install the same release wheel on both machines; a Git clone is unnecessary.
@@ -35,7 +39,7 @@ Start with the [release download/checksum instructions](docs/guides/deployment.m
 | Machine or task | Guide |
 | --- | --- |
 | Private server running Hermes | [Server installation and operation (Vietnamese)](docs/guides/server-hermes.vi.md) |
-| Workstation running Codex Desktop | [Client installation and five-tool usage (Vietnamese)](docs/guides/client-codex.vi.md) |
+| Workstation running Codex Desktop | [Client installation and six-tool usage (Vietnamese)](docs/guides/client-codex.vi.md) |
 | Direct LAN/VPN or managed SSH connection | [SSH configuration, retries and diagnostics (Vietnamese)](docs/guides/ssh-tunnel.vi.md) |
 | Existing v0.6 or legacy installation | [Migration, removal and rollback](docs/upgrades/migration-v0.7.md) |
 
@@ -74,7 +78,8 @@ in protected configuration, outside MCP arguments.
 
 For long work, submit with `wait_seconds: 0`, keep `operation_id`, and get/wait on
 that handle. Explicit waits such as `20` are valid even when the configured default
-is `15`. Only UTF-8 `text/plain` attachments are passed to Hermes in this profile;
+is `15`. UTF-8 text/plain, Markdown, CSV and validated JSON attachments are passed as
+untrusted references; binary files remain inert;
 local repository files are not automatically synchronized.
 
 ## Durability and limits

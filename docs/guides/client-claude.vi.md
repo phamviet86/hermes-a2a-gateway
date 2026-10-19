@@ -1,5 +1,7 @@
 # Claude Code Desktop: cài đặt và kiểm tra v0.11.0
 
+English: [Quickstart](quickstart.md).
+
 Named brokers: [Client connections](client-connections.md).
 
 Phạm vi đầu tiên là **Code tab của Claude Desktop**, không phải chat thường.

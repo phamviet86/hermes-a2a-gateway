@@ -1,5 +1,7 @@
 # Kết nối trực tiếp hoặc SSH tunnel
 
+English: [Quickstart](quickstart.md).
+
 Bản v0.7 có hai chế độ ở **daemon client**: `direct` (mặc định) và `ssh-tunnel`.
 MCP chỉ gọi daemon qua Unix socket, không sở hữu SSH. Nhiều task Codex dùng chung
 một tunnel; restart một facade MCP không làm tạo thêm tunnel.

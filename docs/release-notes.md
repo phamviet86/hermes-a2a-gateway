@@ -1,45 +1,42 @@
-# Hermes A2A Gateway v0.12.0 (candidate)
+# Hermes A2A Gateway v0.12.0 candidate
 
-Device-token overlap and MultiFernet previous keys support staged rotation. Count-only readiness reports show retained old-key usage; restarts are still required.
+One workstation can run named connections, one daemon per broker. Each has
+separate credentials, state, socket and hook registry. Default paths, MCP name,
+flow IDs and harness identity semantics remain compatible with v0.11. Explicit
+path overrides cannot adopt another connection's stores. Every application tool
+result identifies its connection; doctor/instructions show a sanitized origin.
 
-Text attachment inputs now include Markdown, CSV and valid JSON. Binary inputs remain unsupported.
+`gateway_list` recovers operation IDs in the calling trusted conversation without
+broker access or delivery consumption. Submit once, then get/wait; never replay
+an unknown outcome or uncertain native delivery.
 
-Running snapshots expose bounded `last_peer_activity_at` and `running_seconds`; silence never authorizes resubmission.
+Long-running snapshots add nullable last peer activity, running start and elapsed
+seconds through additive PostgreSQL migrations. Stream activity writes are
+bounded to once per 30 seconds. Streams still drain to a terminal event.
+Receiver reply timeout diagnostics prefer structured reasons; exact sentinel
+fallback requires an explicitly verified compat commit. Startup/readiness warn
+when broker/receiver budgets have less than 30 seconds of margin.
 
-Receiver timeout diagnostics distinguish `peer_reply_timeout` from ambiguous broker transport expiry. Configure long-task budgets together; never replay uncertain work.
+Input references now allow UTF-8 text/plain, text/markdown, text/csv and valid
+application/json. Upload types are inferred only when omitted. Existing quotas,
+size limits and untrusted-reference framing remain. Binary inputs are unsupported.
 
-`gateway_list` recovers lost operation IDs locally within the calling conversation.
+Device token overlap and MultiFernet previous keys support staged rotation.
+Count-only readiness/doctor reports distinguish old-key usage and unreadable
+ciphertext. Restarts are required; there is no zero-downtime process handoff.
+Retain old keys until every relevant ciphertext expires/purges, including replay
+events and results, and keep keys for backups separately.
 
-Named connections run one daemon per broker with separate credentials and state.
-The default connection keeps the v0.11.0 paths and identities.
+The CI matrix tests Python 3.11–3.13 on Linux/macOS, and PostgreSQL on 3.11/3.13.
+Candidate installs bypass only this project's Python metadata, while enforcing
+dependency interpreter requirements. Release metadata remains CPython 3.11-only
+until the entire remote matrix passes. No dependency lower bound was raised.
 
-# Hermes A2A Gateway v0.11.0
+See [quickstart](guides/quickstart.md), [connections](guides/client-connections.md),
+[rotation](guides/rotation.md), [operations](guides/ai-operations.md) and
+[upgrade/rollback](upgrades/upgrade-v0.12.md). Fake-peer/process/wheel tests are
+separate from live Hermes, Desktop consumption, macOS CI and release provenance.
+No real deployment, push, tag or release publication was performed.
 
-The MCP facade now selects pluggable host identity providers. Codex and Antigravity
-retain their schemas, instructions, IDs and registry behavior; old Antigravity
-module entrypoints remain supported.
-
-Claude Code **Desktop Code tab** adds native PreToolUse identity joined to MCP
-toolUseId. Attestations bind exact normalized arguments, expire at 300 seconds and
-are consumed atomically once. Claude uses dedicated instance `claude-desktop`,
-shared parent/subagent flow and explicit pull only. No broker wire/schema,
-existing inbox, key, ciphertext, peer-identity or namespace migration is required.
-
-The 2026-10-14 operator-approved initial scope is Desktop first. Eight isolated
-Desktop probe joins matched; compaction/sidebar reopen retained identity,
-fork/clear changed it, and a native subagent shared its parent identity. These are
-bounded probe results. Separate live gateway acceptance verified two isolated
-Desktop sessions, saved-operation wait/get, cross-session read rejection and
-shared parent/subagent reads.
-
-CLI/IDE, actual resume, process restart and CLI/Desktop interoperability remain
-unverified. Ordinary Desktop chat and single-conversation mode are unsupported.
-Changing instance does not transfer access to prior operations.
-
-See [Desktop setup](guides/client-claude.vi.md) and [identity contract](reference/claude-code.md).
-Offline validation: 356 passed, 1 skipped; 84.36% coverage with PostgreSQL 16.
-Compile, lint, formatting, typing, Codex schema, clean-wheel, distribution and
-compatibility/checksum checks passed. See [candidate evidence](reports/testing-report-v0.11.0.md).
-Release assets are published only from the exact successful main/push CI commit.
-Installed-release and native host regression evidence are separate from the
-source-candidate observations.
+Historical reports/history are unchanged. Ten already-broken historical relative
+links remain recorded by the link checker; no new broken links are permitted.

@@ -1,5 +1,7 @@
 # Server: cài đặt và sử dụng Hermes A2A Gateway
 
+English: [Quickstart](quickstart.md).
+
 Tài liệu này dành cho người vận hành một máy chủ riêng chạy Hermes và một hoặc
 nhiều máy Codex Desktop. Nó triển khai nhánh **Codex → Hermes → trả kết quả về
 Codex** của `v0.11.0`:

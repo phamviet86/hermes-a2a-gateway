@@ -1,12 +1,14 @@
 # Hermes A2A Gateway
 
+Bắt đầu: [Quickstart (English)](docs/guides/quickstart.md) · [Connections](docs/guides/client-connections.md).
+
 [English](README.md) | **Tiếng Việt**
 
-**Bản v0.11.0** kết nối Codex Desktop, Claude Code Desktop và Antigravity với Hermes trên server riêng,
+**Bản v0.12.0 candidate** kết nối Codex Desktop, Claude Code Desktop và Antigravity với Hermes trên server riêng,
 qua MCP, daemon/inbox local và broker PostgreSQL. Client hỗ trợ HTTPS trực tiếp
 qua LAN/VPN hoặc HTTPS bên trong SSH tunnel do daemon quản lý.
 
-Bản 0.10 thêm native hook cho Antigravity để giữ riêng conversation ID, retry và kết quả. Xem [cài Antigravity](docs/guides/client-antigravity.vi.md). Ba trường sender và cách ly harness từ0.9 được giữ nguyên; đổi nhãn model giữ cùng cuộc trò chuyện. Xem [nâng cấp/rollback](docs/upgrades/upgrade-v0.11.md).
+Bản 0.10 thêm native hook cho Antigravity để giữ riêng conversation ID, retry và kết quả. Xem [cài Antigravity](docs/guides/client-antigravity.vi.md). Ba trường sender và cách ly harness từ0.9 được giữ nguyên; đổi nhãn model giữ cùng cuộc trò chuyện. Xem [nâng cấp/rollback](docs/upgrades/upgrade-v0.12.md).
 
 Tên package, lệnh và đăng ký MCP thống nhất **`hermes-a2a-gateway`**. Namespace
 Python là `hermes_a2a_gateway`, biến môi trường dùng `HERMES_A2A_GATEWAY_*`.
@@ -38,11 +40,12 @@ vòng đời daemon; nhiều task Desktop dùng chung daemon, không mở SSH ri
 
 ## Sử dụng trong Codex
 
-Sau khi cấu hình daemon và đăng ký MCP theo hướng dẫn client, Codex có năm tool:
+Sau khi cấu hình daemon và đăng ký MCP theo hướng dẫn client, Codex có sáu tool:
 
 | Tool | Công dụng |
 | --- | --- |
 | `gateway_submit` | Giao một yêu cầu mới, nhận `operation_id`; chờ tường minh 0–60 giây |
+| `gateway_list` | Khôi phục operation ID trong đúng conversation, không gửi lại yêu cầu |
 | `gateway_get` | Lấy trạng thái/kết quả theo handle trong task gốc |
 | `gateway_wait` | Chờ tối đa 60 giây trên yêu cầu cũ |
 | `gateway_cancel` | Yêu cầu hủy best-effort |
@@ -54,7 +57,7 @@ Giữ operation_id và dùng gateway_get/gateway_wait nếu chưa hoàn thành; 
 Lỗi `invalid_client_request` do `wait_seconds: 20` vượt mặc định 15 đã được sửa:
 15 giây là thời gian chờ mặc định; giá trị tường minh 0–60 hợp lệ. Đầu vào sai
 được báo lỗi cụ thể trước khi tạo operation. File đính kèm đầu vào hiện chỉ hỗ trợ
-UTF-8 `text/plain`; repo trên máy không tự đồng bộ lên VPS.
+UTF-8 text/plain, Markdown, CSV và JSON hợp lệ; repo trên máy không tự đồng bộ lên VPS.
 
 ## Mất mạng và giới hạn
 
