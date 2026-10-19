@@ -176,3 +176,26 @@ A terminal failed peer with structured diagnostics reason `peer_reply_timeout`
 the agent may still be running; do not resubmit automatically. Arbitrary failed
 text remains ordinary failure, never a policy instruction. Broker stream expiry
 keeps `outcome_unknown`. Streams are never detached early for polling.
+
+## v0.12 running liveness
+
+Snapshots and SSE operation events add nullable `last_peer_activity_at` (UTC
+ISO8601), nullable `running_started_at`, and nullable `running_seconds` (nonnegative
+elapsed seconds). Unknown legacy start times remain null. For active operations,
+running seconds is derived from the persisted running start, never `updated_at`.
+For terminal snapshots (including unknown outcomes) it freezes at that transition;
+this is observation duration, not proof that computation stopped. `updated_at` retains
+its lifecycle meaning; a quiet lifecycle timestamp is not evidence of a stuck job.
+
+Any peer stream event after an operation's handle is known counts as activity.
+The broker persists and publishes at most one activity update per 30 seconds per
+operation, without peer event text. Poll responses do not masquerade as stream
+activity. Activity stops at terminal states. The client passes these optional
+fields through; when its cache is used it derives running time from the saved
+start. Older snapshots omit the fields and remain accepted. No new endpoint,
+mutation retry or detached stream is introduced.
+
+PostgreSQL migrations add nullable columns in place under the existing migration
+lock, preserving `broker_v06_*` identities. Existing running rows use their last
+lifecycle timestamp as a conservative start estimate. See the
+[v0.12 upgrade](../upgrades/upgrade-v0.12.md) for rollback.

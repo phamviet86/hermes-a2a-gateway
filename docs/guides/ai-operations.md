@@ -102,3 +102,12 @@ On `peer_reply_timeout`, tell the user that Hermes stopped waiting and the agent
 may still be running. Check with the server owner before sending new work. Never
 automatically resubmit; broker transport timeout is instead `outcome_unknown` and
 requires reconciliation using the saved remote handle.
+
+## Running liveness
+
+Use `last_peer_activity_at` and `running_seconds`, not the lifecycle `updated_at`,
+to assess long work. Activity is persisted at most every 30 seconds. If activity
+is within 90 seconds, keep observing the same operation with `gateway_wait`.
+If older than 90 seconds, report a possibly stuck task and consult the server
+owner; a quiet stream alone does not prove failure. Missing activity on a legacy
+peer/client is unknown. Never resubmit based on age, silence, or a stale cache.

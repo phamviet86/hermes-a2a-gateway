@@ -609,3 +609,24 @@ def test_missing_ca_is_rejected_before_client_state_creation(settings):
     with pytest.raises(ValueError, match="CA_FILE"):
         replace(settings, ca_file=str(settings.state_dir / "not-a-certificate"))
     assert not settings.state_dir.exists()
+
+
+def test_liveness_optional_for_old_snapshots_and_preserved_for_new(settings):
+    from datetime import UTC, datetime, timedelta
+
+    store = ClientStore(settings)
+    owner = origin()
+    try:
+        operation = store.create(owner, "fixture", [], 0)
+        legacy = snapshot(store, operation, state="running")
+        store.accept_snapshot(legacy)
+        assert store.view(operation, owner)["last_peer_activity_at"] is None
+        assert store.view(operation, owner)["running_seconds"] is None
+        instant = (datetime.now(UTC) - timedelta(seconds=30)).isoformat()
+        store.accept_snapshot(
+            {**legacy, "last_peer_activity_at": instant, "running_started_at": instant, "running_seconds": 30}
+        )
+        view = store.view(operation, owner)
+        assert view["last_peer_activity_at"] == instant and view["running_seconds"] >= 30
+    finally:
+        store.close()

@@ -76,6 +76,8 @@ class HermesBrokerPeer:
             async for event in stream:
                 parsed = self.client.parse_stream_event(event, fallback_context=context)
                 if parsed is None:
+                    if handle is not None:
+                        yield A2ATaskResult(task_id=handle, context_id=context, state="working")
                     continue
                 if not parsed.task_id or (handle is not None and parsed.task_id != handle):
                     raise BrokerError("peer_handle_conflict", "peer stream changed or omitted its task handle", 502)

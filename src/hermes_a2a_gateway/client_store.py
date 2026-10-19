@@ -54,6 +54,19 @@ def locked(method: Callable[P, T]) -> Callable[P, T]:
     return serialized
 
 
+def snapshot_liveness(snapshot: dict[str, Any]) -> dict[str, Any]:
+    seconds = snapshot.get("running_seconds")
+    start = snapshot.get("running_started_at")
+    if snapshot.get("state") == "running" and isinstance(start, str):
+        try:
+            parsed = datetime.fromisoformat(start.replace("Z", "+00:00"))
+            if parsed.tzinfo is not None:
+                seconds = max(0.0, (datetime.now(UTC) - parsed).total_seconds())
+        except ValueError:
+            pass
+    return {"last_peer_activity_at": snapshot.get("last_peer_activity_at"), "running_seconds": seconds}
+
+
 class ClientStore:
     def __init__(self, settings: ClientSettings) -> None:
         self._mutex = threading.RLock()
@@ -174,6 +187,7 @@ class ClientStore:
             snapshot = json.loads(row["snapshot"]) if row["snapshot"] else {}
             items.append(
                 {
+                    **snapshot_liveness(snapshot),
                     "operation_id": row["operation_id"],
                     "request_key": row["call_id"],
                     "state": snapshot.get("state", "outcome_unknown"),
@@ -377,6 +391,7 @@ class ClientStore:
                 self._receipt(operation_id, snapshot["result_id"], "delivered")
         return {
             **snapshot,
+            **snapshot_liveness(snapshot),
             "connection": self.settings.connection,
             "submission_state": row["submission_state"],
             "delivery_state": row["delivery_state"],

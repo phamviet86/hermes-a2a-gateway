@@ -139,8 +139,20 @@ async def invoke(ctx: Context[Any, Any], action: str, arguments: dict[str, Any])
             except (httpx.HTTPError, ValueError):
                 pass
     return types.CallToolResult(
-        content=[types.TextContent(type="text", text=json.dumps({**payload, "connection": connection_name()}))],
-        structured_content={**payload, "connection": connection_name()},
+        content=[
+            types.TextContent(
+                type="text",
+                text=json.dumps(
+                    {"last_peer_activity_at": None, "running_seconds": None, **payload, "connection": connection_name()}
+                ),
+            )
+        ],
+        structured_content={
+            "last_peer_activity_at": None,
+            "running_seconds": None,
+            **payload,
+            "connection": connection_name(),
+        },
         is_error=is_error,
     )
 
@@ -193,9 +205,24 @@ def with_identity(function: Callable[..., Any]) -> Callable[..., Any]:
                     }
                 return types.CallToolResult(
                     content=[
-                        types.TextContent(type="text", text=json.dumps({**payload, "connection": connection_name()}))
+                        types.TextContent(
+                            type="text",
+                            text=json.dumps(
+                                {
+                                    "last_peer_activity_at": None,
+                                    "running_seconds": None,
+                                    **payload,
+                                    "connection": connection_name(),
+                                }
+                            ),
+                        )
                     ],
-                    structured_content={**payload, "connection": connection_name()},
+                    structured_content={
+                        "last_peer_activity_at": None,
+                        "running_seconds": None,
+                        **payload,
+                        "connection": connection_name(),
+                    },
                     is_error=True,
                 )
         return await function(*bound.args, **bound.kwargs)
@@ -300,8 +327,25 @@ async def gateway_upload_artifact(
     except (OSError, ValueError, RuntimeError):
         payload = {"error": {"code": "invalid_local_artifact_or_metadata"}}
         return types.CallToolResult(
-            content=[types.TextContent(type="text", text=json.dumps({**payload, "connection": connection_name()}))],
-            structured_content={**payload, "connection": connection_name()},
+            content=[
+                types.TextContent(
+                    type="text",
+                    text=json.dumps(
+                        {
+                            "last_peer_activity_at": None,
+                            "running_seconds": None,
+                            **payload,
+                            "connection": connection_name(),
+                        }
+                    ),
+                )
+            ],
+            structured_content={
+                "last_peer_activity_at": None,
+                "running_seconds": None,
+                **payload,
+                "connection": connection_name(),
+            },
             is_error=True,
         )
     return await invoke(ctx, "upload", {"data": base64.b64encode(data).decode(), "content_type": content_type})
@@ -345,8 +389,25 @@ async def execute(tool: str, args: dict[str, Any]) -> types.CallToolResult:
             }
         }
         return types.CallToolResult(
-            content=[types.TextContent(type="text", text=json.dumps({**payload, "connection": connection_name()}))],
-            structured_content={**payload, "connection": connection_name()},
+            content=[
+                types.TextContent(
+                    type="text",
+                    text=json.dumps(
+                        {
+                            "last_peer_activity_at": None,
+                            "running_seconds": None,
+                            **payload,
+                            "connection": connection_name(),
+                        }
+                    ),
+                )
+            ],
+            structured_content={
+                "last_peer_activity_at": None,
+                "running_seconds": None,
+                **payload,
+                "connection": connection_name(),
+            },
             is_error=True,
         )
     values = {k: v for k, v in args.items() if k != "request_key"}

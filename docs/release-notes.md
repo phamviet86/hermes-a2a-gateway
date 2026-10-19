@@ -1,5 +1,7 @@
 # Hermes A2A Gateway v0.12.0 (candidate)
 
+Running snapshots expose bounded `last_peer_activity_at` and `running_seconds`; silence never authorizes resubmission.
+
 Receiver timeout diagnostics distinguish `peer_reply_timeout` from ambiguous broker transport expiry. Configure long-task budgets together; never replay uncertain work.
 
 `gateway_list` recovers lost operation IDs locally within the calling conversation.

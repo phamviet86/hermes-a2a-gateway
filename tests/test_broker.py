@@ -1377,3 +1377,33 @@ async def test_timeout_margin_is_advisory_and_readiness_visible(ledger, broker_s
         assert report["ok"] is True and report["timeout_warnings"] == ["peer_timeout_margin"]
     assert broker_settings.timeout_warnings == []
     assert settings.model_copy(update={"peer_timeout_seconds": 330}).timeout_warnings == []
+
+
+def test_two_minutes_of_activity_has_five_writes_and_freezes_terminal(ledger, monkeypatch):
+    from datetime import timedelta
+
+    import hermes_a2a_gateway.broker_store as module
+
+    base = utcnow()
+    clock = [base]
+    monkeypatch.setattr(module, "utcnow", lambda: clock[0])
+    request = command()
+    ledger.accept("a", request)
+    ledger.acquire_dispatcher()
+    assert ledger.claim()["operation_id"] == request["operation_id"]
+    before = ledger.events("a", 0)
+    writes = 0
+    for second in range(121):
+        clock[0] = base + timedelta(seconds=second)
+        writes += ledger.record_peer_activity("a", request["operation_id"])
+    assert writes == 5
+    assert len(ledger.events("a", 0)) == len(before) + 5
+    snapshot = ledger.get("a", request["operation_id"])
+    assert snapshot["running_seconds"] == 120
+    assert snapshot["last_peer_activity_at"] == module.iso(clock[0])
+    ledger.finish("a", request["operation_id"], "completed", {"text": "done"})
+    clock[0] += timedelta(seconds=100)
+    assert not ledger.record_peer_activity("a", request["operation_id"])
+    final = ledger.get("a", request["operation_id"])
+    assert final["running_seconds"] == 120
+    assert final["last_peer_activity_at"] == snapshot["last_peer_activity_at"]

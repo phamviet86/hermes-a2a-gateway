@@ -109,6 +109,12 @@ class BrokerStore:
             conn.execute("SELECT pg_advisory_xact_lock(608060600)")
             conn.execute(SCHEMA)
             conn.execute("ALTER TABLE broker_v06_operations ADD COLUMN IF NOT EXISTS sender_context bytea")
+            conn.execute("ALTER TABLE broker_v06_operations ADD COLUMN IF NOT EXISTS last_peer_activity_at timestamptz")
+            conn.execute("ALTER TABLE broker_v06_operations ADD COLUMN IF NOT EXISTS running_started_at timestamptz")
+            conn.execute(
+                "UPDATE broker_v06_operations SET running_started_at=updated_at "
+                "WHERE state='running' AND running_started_at IS NULL"
+            )
 
     @contextmanager
     def transaction(self) -> Iterator[psycopg.Connection[dict[str, Any]]]:
@@ -169,6 +175,16 @@ class BrokerStore:
             "remote_task_id": row["remote_task_id"],
             "created_at": iso(row["created_at"]),
             "updated_at": iso(row["updated_at"]),
+            "last_peer_activity_at": iso(row["last_peer_activity_at"]) if row.get("last_peer_activity_at") else None,
+            "running_started_at": iso(row["running_started_at"]) if row.get("running_started_at") else None,
+            "running_seconds": max(
+                0.0,
+                (
+                    (row["updated_at"] if row["state"] in TERMINAL else utcnow()) - row["running_started_at"]
+                ).total_seconds(),
+            )
+            if row.get("running_started_at")
+            else None,
         }
 
     def _event(self, conn: psycopg.Connection[dict[str, Any]], device: str, operation: str) -> dict[str, Any]:
@@ -300,8 +316,9 @@ class BrokerStore:
                 (utcnow(), device, operation),
             )
             conn.execute(
-                "UPDATE broker_v06_operations SET state='running',updated_at=%s WHERE device_id=%s AND operation_id=%s",
-                (utcnow(), device, operation),
+                "UPDATE broker_v06_operations SET state='running',updated_at=%s,running_started_at=%s "
+                "WHERE device_id=%s AND operation_id=%s",
+                (utcnow(), utcnow(), device, operation),
             )
             self._event(conn, device, operation)
             return {"device_id": device, **request, "attachments": attachments}
@@ -348,6 +365,22 @@ class BrokerStore:
         with self.transaction() as conn:
             self._device(conn, device)
             return self._finish(conn, device, operation, state, result, code, message)
+
+    def record_peer_activity(self, device: str, operation: str) -> bool:
+        """Stream liveness only; bounded durable writes/events without event content."""
+        with self.transaction() as conn:
+            self._device(conn, device)
+            now = utcnow()
+            row = conn.execute(
+                "UPDATE broker_v06_operations SET last_peer_activity_at=%s "
+                "WHERE device_id=%s AND operation_id=%s AND state='running' "
+                "AND (last_peer_activity_at IS NULL OR last_peer_activity_at<=%s) RETURNING operation_id",
+                (now, device, operation, now - timedelta(seconds=30)),
+            ).fetchone()
+            if row is None:
+                return False
+            self._event(conn, device, operation)
+            return True
 
     def save_handle(self, device: str, operation: str, handle: str) -> None:
         if not handle or len(handle) > 512:

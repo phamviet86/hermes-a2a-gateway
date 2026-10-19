@@ -214,6 +214,7 @@ class BrokerDispatcher:
                     if not result.task_id:
                         continue
                     terminal_seen = result.state in FINAL | {"rejected", "input_required"}
+                    await asyncio.to_thread(self.store.record_peer_activity, device, operation)
                     await self.observe(device, operation, result)
                     if terminal_seen:
                         return
