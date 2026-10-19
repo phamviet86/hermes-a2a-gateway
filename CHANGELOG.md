@@ -2,6 +2,8 @@
 
 ## 0.12.0 — Unreleased
 
+- Add conversation-scoped, read-only `gateway_list` to recover operation IDs without resubmission.
+
 - Named client connections isolate broker credentials, inboxes, MCP names and hook stores; default paths and IDs are unchanged.
 
 ## 0.11.0 — 2026-10-14

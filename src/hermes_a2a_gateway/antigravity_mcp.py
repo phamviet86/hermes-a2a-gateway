@@ -18,6 +18,7 @@ from .client_settings import PREFIX
 
 mcp = client_mcp.antigravity_server
 gateway_submit = client_mcp.antigravity_gateway_submit
+gateway_list = client_mcp.antigravity_gateway_list
 gateway_get = client_mcp.antigravity_gateway_get
 gateway_wait = client_mcp.antigravity_gateway_wait
 gateway_cancel = client_mcp.antigravity_gateway_cancel

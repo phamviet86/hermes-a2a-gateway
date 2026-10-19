@@ -6,7 +6,7 @@ does not prove that Hermes has the patch or has selected your broker credential.
 
 ## Identity and task ownership
 
-Use the five registered `gateway_*` MCP tools. Native thread/turn/call identity
+Use the six registered `gateway_*` MCP tools. Native thread/turn/call identity
 comes from Codex host metadata; never invent it or supply a remote URL or token.
 One Desktop task owns one durable flow and Hermes context. Keep that context for
 follow-up work. Separate Desktop tasks have separate contexts and can progress
@@ -85,3 +85,13 @@ verify installed release provenance, health and a real application request.
 See [the contract](../reference/client-server-contract.md), [deployment](deployment.md), and
 [Hermes compatibility](../reference/hermes-compatibility.md). Historical test reports describe
 only their tested versions and scenarios.
+
+## Recover a lost operation ID
+
+On a resumed or compacted conversation, call `gateway_list(limit=10,
+include_finished=true)`, then `gateway_get` or `gateway_wait` on the matching ID.
+Listing returns newest-first metadata for this trusted conversation and connection
+only, never prompts or results. It neither calls the broker nor consumes delivery.
+Use `include_finished=false` to focus on unfinished/unknown work. Never resubmit
+while a matching operation exists; `request_key` is the stored call identity, not
+permission to replay a mutation. Hook hosts require an attestation for listing too.

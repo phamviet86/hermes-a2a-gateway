@@ -29,6 +29,7 @@ async def test_separate_mcp_tools_have_no_model_native_identity():
         "gateway_wait",
         "gateway_cancel",
         "gateway_upload_artifact",
+        "gateway_list",
     }
     for tool in tools:
         schema = tool.input_schema

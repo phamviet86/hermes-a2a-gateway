@@ -31,6 +31,7 @@ MAX_DB_BYTES = 64 * 1024 * 1024
 DEFAULTS: dict[str, dict[str, Any]] = {
     "gateway_submit": {"artifact_ids": None, "wait_seconds": None, "model": None},
     "gateway_get": {},
+    "gateway_list": {"limit": 10, "include_finished": True},
     "gateway_wait": {"timeout": 30.0},
     "gateway_cancel": {},
     "gateway_upload_artifact": {"content_type": "application/octet-stream"},
@@ -38,6 +39,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
 REQUIRED = {
     "gateway_submit": {"prompt"},
     "gateway_get": {"operation_id"},
+    "gateway_list": set(),
     "gateway_wait": {"operation_id"},
     "gateway_cancel": {"operation_id"},
     "gateway_upload_artifact": {"path"},
@@ -70,6 +72,12 @@ def normalized_values(tool: str, arguments: Any) -> dict[str, Any]:
     if set(arguments) - (REQUIRED[tool] | DEFAULTS[tool].keys()) or not REQUIRED[tool] <= arguments.keys():
         raise BindingError("invalid_binding_request")
     values = {**DEFAULTS[tool], **arguments}
+    if tool == "gateway_list" and (
+        type(values["limit"]) is not int
+        or not 1 <= values["limit"] <= 50
+        or type(values["include_finished"]) is not bool
+    ):
+        raise BindingError("invalid_binding_request")
     for numeric in ("wait_seconds", "timeout"):
         if numeric in values and values[numeric] is not None:
             if isinstance(values[numeric], bool) or not isinstance(values[numeric], (float, int)):

@@ -43,7 +43,9 @@ async def test_full_v010_schema_and_instruction_snapshots():
     for name, server in [("codex", client_mcp.mcp), ("antigravity", client_mcp.antigravity_server)]:
         assert server.instructions.startswith("Connection: default; broker origin: unconfigured. ")
         assert server.instructions.endswith(snapshot[name]["instructions"])
-        assert [t.model_dump(mode="json") for t in await server.list_tools()] == snapshot[name]["tools"]
+        assert [t.model_dump(mode="json") for t in await server.list_tools() if t.name != "gateway_list"] == snapshot[
+            name
+        ]["tools"]
 
 
 def test_unified_entrypoint_selects_hook_schema(monkeypatch):

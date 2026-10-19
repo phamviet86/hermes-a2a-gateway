@@ -189,7 +189,7 @@ async def test_facade_passes_only_host_bound_metadata_and_no_retry_key(binding_d
 async def test_schema_preserves_codex_and_requires_retry_key_only_in_ag():
     ag = await antigravity_mcp.mcp.list_tools()
     codex = await client_mcp.mcp.list_tools()
-    assert len(ag) == len(codex) == 5
+    assert len(ag) == len(codex) == 6
     for tool in ag:
         assert "request_key" in tool.input_schema["required"]
         assert "conversation_id" not in tool.input_schema["properties"]

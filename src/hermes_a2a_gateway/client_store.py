@@ -11,6 +11,7 @@ import stat
 import threading
 import time
 from collections.abc import Callable
+from datetime import UTC, datetime
 from functools import wraps
 from pathlib import Path
 from typing import Any, ParamSpec, TypeVar
@@ -154,6 +155,37 @@ class ClientStore:
         if row is None:
             raise KeyError("no durable operation for this exact native tool call")
         return self.view(row["operation_id"], origin)
+
+    @locked
+    def list_operations(
+        self, origin: NativeOrigin, limit: int = 10, include_finished: bool = True
+    ) -> list[dict[str, Any]]:
+        """Local, non-consuming recovery metadata; never refreshes or exposes content."""
+        if type(limit) is not int or not 1 <= limit <= 50 or type(include_finished) is not bool:
+            raise ValueError("invalid operation list bounds")
+        query = "SELECT * FROM client_operations WHERE thread_id=? AND expired=0 AND expires>?"
+        if not include_finished:
+            query += (
+                " AND (snapshot IS NULL OR json_extract(snapshot,'$.state') NOT IN ('completed','failed','canceled'))"
+            )
+        query += " ORDER BY created DESC,operation_id DESC LIMIT ?"
+        items = []
+        for row in self.db.execute(query, (origin.storage_thread_id, time.time(), limit)):
+            snapshot = json.loads(row["snapshot"]) if row["snapshot"] else {}
+            items.append(
+                {
+                    "operation_id": row["operation_id"],
+                    "request_key": row["call_id"],
+                    "state": snapshot.get("state", "outcome_unknown"),
+                    "submission_state": row["submission_state"],
+                    "delivery_state": row["delivery_state"],
+                    "result_available": snapshot.get("result") is not None,
+                    "created_at": datetime.fromtimestamp(row["created"], UTC).isoformat(),
+                    "updated_at": datetime.fromtimestamp(row["updated"], UTC).isoformat(),
+                    "connection": self.settings.connection,
+                }
+            )
+        return items
 
     @locked
     def create(

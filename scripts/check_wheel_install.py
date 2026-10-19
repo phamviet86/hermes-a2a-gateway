@@ -68,7 +68,7 @@ async def main():
         await session.initialize()
         tools = await session.list_tools()
         expected = {'gateway_submit', 'gateway_get', 'gateway_wait',
-                    'gateway_cancel', 'gateway_upload_artifact'}
+                    'gateway_cancel', 'gateway_upload_artifact', 'gateway_list'}
         assert {tool.name for tool in tools.tools} == expected
         result = await session.call_tool('gateway_get', {'operation_id': 'no-native-origin'})
         assert result.is_error is True

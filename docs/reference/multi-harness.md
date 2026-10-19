@@ -100,3 +100,5 @@ Claude Code Desktop uses `hook:claude` and the dedicated stable instance
 `claude-desktop`. See [Claude contract](claude-code.md). CLI/IDE, actual resume,
 process restart and CLI/Desktop interoperability remain unverified. The
 single-conversation provider is not implemented.
+
+`gateway_list(limit=10, include_finished=true)` is a read-only, local lost-ID recovery tool scoped to the same trusted storage thread as get/wait. Limit is 1–50; no broker refresh or delivery consumption occurs.

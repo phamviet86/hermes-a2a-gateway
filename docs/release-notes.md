@@ -1,5 +1,7 @@
 # Hermes A2A Gateway v0.12.0 (candidate)
 
+`gateway_list` recovers lost operation IDs locally within the calling conversation.
+
 Named connections run one daemon per broker with separate credentials and state.
 The default connection keeps the v0.11.0 paths and identities.
 

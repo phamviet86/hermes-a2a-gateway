@@ -242,6 +242,17 @@ async def gateway_submit(
 
 @mcp.tool(annotations=READ, structured_output=True)
 @with_identity
+async def gateway_list(
+    ctx: Context[Any, Any],
+    limit: Annotated[int, Field(ge=1, le=50, strict=True)] = 10,
+    include_finished: Annotated[bool, Field(strict=True)] = True,
+) -> ToolResult:
+    """Recover lost operation IDs in this conversation only; local metadata, no broker call or consumption."""
+    return await invoke(ctx, "list", {"limit": limit, "include_finished": include_finished})
+
+
+@mcp.tool(annotations=READ, structured_output=True)
+@with_identity
 async def gateway_get(operation_id: str, ctx: Context[Any, Any]) -> ToolResult:
     """Read a known operation/result bound to this native thread. Safe fallback after uncertain queue delivery."""
     return await invoke(ctx, "get", {"operation_id": operation_id})
@@ -363,6 +374,17 @@ async def antigravity_gateway_submit(
     )
 
 
+async def antigravity_gateway_list(
+    request_key: Key,
+    limit: Annotated[int, Field(ge=1, le=50, strict=True)] = 10,
+    include_finished: Annotated[bool, Field(strict=True)] = True,
+) -> types.CallToolResult:
+    """Recover this conversation's operation IDs without changing state or contacting the broker."""
+    return await execute(
+        "gateway_list", {"request_key": request_key, "limit": limit, "include_finished": include_finished}
+    )
+
+
 async def antigravity_gateway_get(operation_id: str, request_key: Key) -> types.CallToolResult:
     """Read an operation owned by this host conversation; never resubmit unknown work."""
     return await execute("gateway_get", {"operation_id": operation_id, "request_key": request_key})
@@ -397,6 +419,7 @@ async def antigravity_gateway_upload_artifact(
 for _tool, _annotations in (
     (antigravity_gateway_submit, WRITE),
     (antigravity_gateway_get, READ),
+    (antigravity_gateway_list, READ),
     (antigravity_gateway_wait, READ),
     (antigravity_gateway_cancel, WRITE),
     (antigravity_gateway_upload_artifact, WRITE),
@@ -429,6 +452,7 @@ claude_server = MCPServer[Any](
 )
 for _tool, _annotations in (
     (gateway_submit, WRITE),
+    (gateway_list, READ),
     (gateway_get, READ),
     (gateway_wait, READ),
     (gateway_cancel, WRITE),

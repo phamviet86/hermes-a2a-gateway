@@ -524,6 +524,12 @@ def create_client_app(service: ClientService, *, manage_lifecycle: bool = True) 
                     args.get("wait_seconds"),
                     args.get("model"),
                 )
+            elif action == "list":
+                result = {
+                    "operations": await service._store(
+                        "list_operations", origin, args.get("limit", 10), args.get("include_finished", True)
+                    )
+                }
             elif action == "resolve_call":
                 result = service.store.resolve_call(origin)
             elif action == "get":

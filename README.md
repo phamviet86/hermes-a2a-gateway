@@ -66,6 +66,7 @@ in protected configuration, outside MCP arguments.
 | MCP tool | Purpose |
 | --- | --- |
 | `gateway_submit` | Submit once and return an operation handle; explicit wait 0–60 seconds |
+| `gateway_list` | Recover operation IDs in the calling conversation without consuming results |
 | `gateway_get` | Retrieve an existing operation/result in its originating Desktop task |
 | `gateway_wait` | Wait up to 60 seconds on the same operation without resubmitting |
 | `gateway_cancel` | Request best-effort cancellation |
