@@ -8,7 +8,7 @@ Hermes A2A Gateway connects Codex Desktop, Claude Code Desktop and Antigravity t
 owns a durable local inbox and optional SSH tunnel; the broker owns a PostgreSQL
 ledger and dispatches work to the server's loopback Hermes A2A endpoint.
 
-**Version: v0.12.0 candidate.** Adds named broker connections, conversation-scoped
+**Version: v0.12.0.** Adds named broker connections, conversation-scoped
 operation recovery, long-task diagnostics/liveness, text references and staged
 credential rotation. The default v0.11 setup keeps its paths and identities.
 See [installation](docs/guides/deployment.md), [upgrade/rollback](docs/upgrades/upgrade-v0.12.md),
@@ -28,8 +28,8 @@ product. Codex Desktop is the first verified integration; other runtime adapters
 and arbitrary Hermes-initiated Desktop jobs are not implemented.
 
 Start with the [quickstart](docs/guides/quickstart.md) or
-[named connections](docs/guides/client-connections.md). Python 3.12/3.13 are CI
-candidates; release support stays 3.11 until the full Linux/macOS matrix passes.
+[named connections](docs/guides/client-connections.md). CPython 3.11–3.13 are supported
+after the complete Linux/macOS and PostgreSQL CI matrix passed.
 
 ## Install and use
 
@@ -100,7 +100,7 @@ local repository files are not automatically synchronized.
   under a separate retention policy. Do not replace an existing encryption key.
 - Cancellation is best-effort. Human-input continuation through the broker is not
   implemented. Native delivery is version/schema gated.
-- CPython 3.11 and clean wheels are tested on macOS/Linux. The Unix-socket client
+- CPython 3.11–3.13 and clean wheels are tested on macOS/Linux. The Unix-socket client
   does not support Windows. Native Desktop behavior must be verified separately
   from package installation or simulated reconnect tests.
 

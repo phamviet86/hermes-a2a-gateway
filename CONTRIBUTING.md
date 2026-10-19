@@ -1,6 +1,6 @@
 # Contributing
 
-Cảm ơn bạn muốn đóng góp. Project đang ở trạng thái public beta, dùng Python 3.11, MCP stdio cho client Desktop và HTTPS/SSE tới broker chuyển tiếp Hermes A2A.
+Cảm ơn bạn muốn đóng góp. Project đang ở trạng thái public beta, dùng CPython 3.11–3.13, MCP stdio cho client Desktop và HTTPS/SSE tới broker chuyển tiếp Hermes A2A.
 
 ## Thiết lập phát triển
 

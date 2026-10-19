@@ -143,7 +143,7 @@ release checksums. Package tests must exercise the patch offline against pinned 
 ## 5. Development and validation
 
 1. Inspect `git status` and preserve unrelated user changes.
-2. Use CPython 3.11 and the project virtual environment.
+2. Use CPython 3.11–3.13 and the project virtual environment; keep lint/type targets at the minimum 3.11.
 3. Keep work scoped. Add regression tests for protocol, persistence, authentication,
    timeouts, idempotence, cancellation, restart, tunnel lifecycle and network policy.
 4. Update README, `.env.example`, relevant docs and CHANGELOG for public changes.

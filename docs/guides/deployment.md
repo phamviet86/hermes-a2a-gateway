@@ -26,7 +26,7 @@ Desktop integration; Windows is not supported by this Unix-socket client.
 
 ## Install the same release on both machines
 
-Prerequisites: CPython 3.11 with venv; PostgreSQL 16 on the server; an existing
+Prerequisites: CPython 3.11–3.13 with venv; PostgreSQL 16 on the server; an existing
 authenticated Hermes installation with A2A on loopback; and Codex Desktop/CLI
 on the workstation. Keep server and client state separate. Preserve existing modern inbox/ledger keys and records when upgrading.
 
@@ -62,7 +62,7 @@ python3.11 -m venv "$gateway_venv"
 ```
 
 Stop if checksum verification fails. Keep the verified wheel for rollback and
-record its digest with the deployed source revision. Do not install into Hermes's own Python environment. Use an independent Python 3.11 installation; do not remove an older venv's interpreter until its dependents have been replaced.
+record its digest with the deployed source revision. Do not install into Hermes's own Python environment. Use an independent CPython 3.11–3.13 installation; do not remove an older venv's interpreter until its dependents have been replaced.
 
 ## Server configuration
 

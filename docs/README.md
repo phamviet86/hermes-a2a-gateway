@@ -1,9 +1,9 @@
 # Documentation by task
 
-Current candidate: **v0.12.0**. Existing default connections retain v0.11 paths,
-identities and credentials. Python 3.12/3.13 remain candidates until the full
-Linux/macOS CI matrix passes. Versioned release assets establish provenance;
-local builds and fake peers do not establish production/Desktop acceptance.
+Current release: **v0.12.0**. Existing default connections retain v0.11 paths,
+identities and credentials. CPython 3.11–3.13 are supported after the complete
+Linux/macOS and PostgreSQL CI matrix passed. Versioned release assets establish
+provenance; fake peers do not establish production/Desktop acceptance.
 
 ## Install
 
@@ -47,7 +47,7 @@ local builds and fake peers do not establish production/Desktop acceptance.
 
 ## Evidence and planning
 
-- [Release notes](release-notes.md): current candidate behavior and acceptance limits.
+- [Release notes](release-notes.md): current release behavior and acceptance limits.
 - [Reports](reports/README.md): immutable dated verification, including installed v0.11 acceptance.
 - [History](history/README.md): retired releases/modes, not current setup instructions.
 - [Proposals](proposals/README.md): planned designs; status alone does not authorize implementation.

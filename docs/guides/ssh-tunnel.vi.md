@@ -1,6 +1,6 @@
 # Kết nối trực tiếp hoặc SSH tunnel
 
-English: [Quickstart](quickstart.md).
+English: [Quickstart](quickstart.md). Hỗ trợ CPython 3.11–3.13; lệnh dùng 3.11 vẫn hợp lệ.
 
 Bản v0.7 có hai chế độ ở **daemon client**: `direct` (mặc định) và `ssh-tunnel`.
 MCP chỉ gọi daemon qua Unix socket, không sở hữu SSH. Nhiều task Codex dùng chung

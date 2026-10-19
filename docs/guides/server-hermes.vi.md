@@ -1,6 +1,6 @@
 # Server: cài đặt và sử dụng Hermes A2A Gateway
 
-English: [Quickstart](quickstart.md).
+English: [Quickstart](quickstart.md). Hỗ trợ CPython 3.11–3.13; lệnh dùng 3.11 vẫn hợp lệ.
 
 Tài liệu này dành cho người vận hành một máy chủ riêng chạy Hermes và một hoặc
 nhiều máy Codex Desktop. Nó triển khai nhánh **Codex → Hermes → trả kết quả về

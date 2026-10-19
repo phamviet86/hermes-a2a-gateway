@@ -1,6 +1,6 @@
 # Claude Code Desktop: cài đặt và kiểm tra v0.11.0
 
-English: [Quickstart](quickstart.md).
+English: [Quickstart](quickstart.md). Hỗ trợ CPython 3.11–3.13; lệnh dùng 3.11 vẫn hợp lệ.
 
 Named brokers: [Client connections](client-connections.md).
 

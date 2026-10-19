@@ -1,7 +1,8 @@
 # Upgrade v0.11 to v0.12
 
-This is a candidate upgrade; review the task validation report and CI before
-publishing. No live host upgrade or receiver patch is performed by this work.
+CPython 3.11–3.13 are supported after the full Linux/macOS CI matrix passed.
+Verify release checksums and the published commit before upgrading. Live host
+upgrade and receiver patching remain separate operator actions.
 
 1. Pause new submissions and wait for definitive results where possible. Do not
    resubmit unknown work. Save operation and remote task IDs.

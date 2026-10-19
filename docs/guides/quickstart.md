@@ -1,8 +1,8 @@
 # Quickstart
 
-v0.12 is a candidate upgrade. Release support remains CPython 3.11 until the
-complete Python 3.11–3.13 Linux/macOS CI matrix passes. Do not interpret a Linux
-candidate test as installed Desktop or production acceptance.
+v0.12 supports CPython 3.11–3.13 on Linux and macOS. The complete interpreter
+matrix and PostgreSQL jobs passed before extending support. Package tests are
+separate from installed Desktop or production acceptance.
 
 ## Common prerequisites
 
@@ -11,17 +11,17 @@ device token, fresh per-connection payload key, and verified TLS trust. Keep
 credentials in protected configuration. Each broker requires PostgreSQL 16 and a
 loopback Hermes peer. Never use another connection's token, key or store.
 
-Install the verified wheel in a private virtual environment, using CPython 3.11:
+Install the verified wheel in a private virtual environment, using any supported CPython 3.11–3.13 (3.13 shown):
 
 ```bash
-python3.11 -m venv /absolute/private/gateway-venv
+python3.13 -m venv /absolute/private/gateway-venv
 /absolute/private/gateway-venv/bin/python -m pip install /absolute/path/to/verified-gateway.whl
 /absolute/private/gateway-venv/bin/hermes-a2a-gateway --version
 ```
 
-On macOS obtain the pinned interpreter with `brew install python@3.11`; on Linux
-use a trusted CPython 3.11 package or `uv python install 3.11` followed by
-`uv venv --python 3.11 /absolute/private/gateway-venv`. See
+On macOS obtain the pinned interpreter with `brew install python@3.13`; on Linux
+use a trusted CPython 3.11–3.13 package or `uv python install 3.13` followed by
+`uv venv --python 3.13 /absolute/private/gateway-venv`. See
 [release verification and deployment](deployment.md) before installing.
 
 For multiple brokers, choose a connection name such as `helen`, create its private

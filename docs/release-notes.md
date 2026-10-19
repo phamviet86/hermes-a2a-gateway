@@ -1,4 +1,4 @@
-# Hermes A2A Gateway v0.12.0 candidate
+# Hermes A2A Gateway v0.12.0
 
 One workstation can run named connections, one daemon per broker. Each has
 separate credentials, state, socket and hook registry. Default paths, MCP name,
@@ -28,15 +28,17 @@ Retain old keys until every relevant ciphertext expires/purges, including replay
 events and results, and keep keys for backups separately.
 
 The CI matrix tests Python 3.11–3.13 on Linux/macOS, and PostgreSQL on 3.11/3.13.
-Candidate installs bypass only this project's Python metadata, while enforcing
-dependency interpreter requirements. Release metadata remains CPython 3.11-only
-until the entire remote matrix passes. No dependency lower bound was raised.
+All eight jobs passed on the implementation commit
+[e693390](https://github.com/phamviet86/hermes-a2a-gateway/actions/runs/39196761281)
+before extending release support to CPython 3.11–3.13. Installation and wheel
+checks now enforce Python requirements normally. No dependency lower bound was raised.
 
 See [quickstart](guides/quickstart.md), [connections](guides/client-connections.md),
 [rotation](guides/rotation.md), [operations](guides/ai-operations.md) and
 [upgrade/rollback](upgrades/upgrade-v0.12.md). Fake-peer/process/wheel tests are
 separate from live Hermes, Desktop consumption, macOS CI and release provenance.
-No real deployment, push, tag or release publication was performed.
+Live host deployment remains a separate operator action. Release automation builds
+and publishes only the exact commit that passes the main-branch CI matrix.
 
 Historical reports/history are unchanged. Ten already-broken historical relative
 links remain recorded by the link checker; no new broken links are permitted.

@@ -7,7 +7,7 @@ name = "hermes-a2a-gateway"
 version = "0.12.0"
 description = "Durable Hermes A2A gateway with a Desktop MCP client and managed SSH transport"
 readme = "README.md"
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.11,<3.14"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{name = "Hermes A2A Gateway contributors"}]
@@ -19,6 +19,8 @@ classifiers = [
   "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Libraries :: Application Frameworks",
 ]
 dependencies = [

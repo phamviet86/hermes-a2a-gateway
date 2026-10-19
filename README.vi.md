@@ -4,7 +4,7 @@ Bắt đầu: [Quickstart (English)](docs/guides/quickstart.md) · [Connections]
 
 [English](README.md) | **Tiếng Việt**
 
-**Bản v0.12.0 candidate** kết nối Codex Desktop, Claude Code Desktop và Antigravity với Hermes trên server riêng,
+**Bản v0.12.0** kết nối Codex Desktop, Claude Code Desktop và Antigravity với Hermes trên server riêng,
 qua MCP, daemon/inbox local và broker PostgreSQL. Client hỗ trợ HTTPS trực tiếp
 qua LAN/VPN hoặc HTTPS bên trong SSH tunnel do daemon quản lý.
 
@@ -73,7 +73,7 @@ Bản này dành cho một chủ sở hữu, một broker và mỗi inbox chỉ 
 best-effort; vòng hỏi/đáp human input qua broker chưa được hỗ trợ. Payload/file mặc
 định giữ một ngày, kết quả/event bảy ngày. Sao lưu cả dữ liệu và đúng khóa mã hóa.
 
-Cài wheel được kiểm tra trên macOS/Linux với Python 3.11; Windows chưa hỗ trợ.
+Cài wheel được kiểm tra trên macOS/Linux với CPython 3.11–3.13; Windows chưa hỗ trợ.
 Khả năng native Desktop và sleep/wake phải có bằng chứng riêng, không suy ra từ
 việc cài package thành công. Xem [hợp đồng](docs/reference/client-server-contract.md),
 [release notes](docs/release-notes.md) và [báo cáo lịch sử](docs/history/README.md).
