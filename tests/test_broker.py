@@ -1379,7 +1379,7 @@ async def test_timeout_margin_is_advisory_and_readiness_visible(ledger, broker_s
     assert settings.model_copy(update={"peer_timeout_seconds": 330}).timeout_warnings == []
 
 
-def test_two_minutes_of_activity_has_five_writes_and_freezes_terminal(ledger, monkeypatch):
+async def test_two_minutes_of_activity_has_five_writes_and_freezes_terminal(ledger, broker_settings, monkeypatch):
     from datetime import timedelta
 
     import hermes_a2a_gateway.broker_store as module
@@ -1390,18 +1390,38 @@ def test_two_minutes_of_activity_has_five_writes_and_freezes_terminal(ledger, mo
     request = command()
     ledger.accept("a", request)
     ledger.acquire_dispatcher()
-    assert ledger.claim()["operation_id"] == request["operation_id"]
+    claim = ledger.claim()
+    assert claim["operation_id"] == request["operation_id"]
     before = ledger.events("a", 0)
-    writes = 0
-    for second in range(121):
-        clock[0] = base + timedelta(seconds=second)
-        writes += ledger.record_peer_activity("a", request["operation_id"])
-    assert writes == 5
-    assert len(ledger.events("a", 0)) == len(before) + 5
+    writes = []
+    record = ledger.record_peer_activity
+
+    def counted(device, operation):
+        written = record(device, operation)
+        writes.append(written)
+        return written
+
+    monkeypatch.setattr(ledger, "record_peer_activity", counted)
+
+    class ClockPeer(FakePeer):
+        async def submit(self, claim, timeout):
+            self.submissions.append(claim)
+            # Simulate a progress event each second for two minutes without
+            # sleeping: exercise the real dispatcher and PostgreSQL write bound.
+            for second in range(121):
+                clock[0] = base + timedelta(seconds=second)
+                yield task(state="working")
+            yield task(state="completed", text="done")
+
+    peer = ClockPeer()
+    dispatcher = BrokerDispatcher(ledger, peer, broker_settings)
+    await dispatcher._submit(claim)
+    assert len(peer.submissions) == 1
+    assert sum(writes) == 5
+    assert len(ledger.events("a", 0)) == len(before) + 7  # five activity + handle + terminal
     snapshot = ledger.get("a", request["operation_id"])
-    assert snapshot["running_seconds"] == 120
+    assert snapshot["state"] == "completed" and snapshot["running_seconds"] == 120
     assert snapshot["last_peer_activity_at"] == module.iso(clock[0])
-    ledger.finish("a", request["operation_id"], "completed", {"text": "done"})
     clock[0] += timedelta(seconds=100)
     assert not ledger.record_peer_activity("a", request["operation_id"])
     final = ledger.get("a", request["operation_id"])
@@ -1484,3 +1504,22 @@ def test_invalid_previous_broker_key_is_redacted(broker_settings):
     with pytest.raises(ValueError) as error:
         BrokerSettings.model_validate({**broker_settings.model_dump(), "previous_encryption_keys": ["private-invalid"]})
     assert "private-invalid" not in str(error.value)
+
+
+async def test_activity_write_failure_never_loses_received_remote_handle(ledger, broker_settings, monkeypatch):
+    request = command()
+    ledger.accept("a", request)
+    ledger.acquire_dispatcher()
+    ledger.claim()
+    dispatcher = BrokerDispatcher(ledger, FakePeer(), broker_settings)
+
+    def unavailable(device, operation):
+        assert ledger.get(device, operation)["remote_task_id"] == "durable-before-activity"
+        raise RuntimeError("synthetic activity write failure")
+
+    monkeypatch.setattr(ledger, "record_peer_activity", unavailable)
+    with pytest.raises(RuntimeError, match="activity"):
+        await dispatcher.observe(
+            "a", request["operation_id"], task(handle="durable-before-activity", state="working"), stream=True
+        )
+    assert ledger.get("a", request["operation_id"])["remote_task_id"] == "durable-before-activity"

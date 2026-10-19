@@ -119,19 +119,22 @@ class BrokerDispatcher:
         self._next_purge = 0.0
         self._handles: dict[tuple[str, str], str] = {}
 
-    async def observe(self, device: str, operation: str, task: A2ATaskResult) -> None:
+    async def observe(self, device: str, operation: str, task: A2ATaskResult, *, stream: bool = False) -> None:
         async with self._observations:
             try:
-                await self._observe(device, operation, task)
+                await self._observe(device, operation, task, stream=stream)
             finally:
                 if task.state in FINAL | {"rejected", "input_required"}:
                     self._handles.pop((device, operation), None)
 
-    async def _observe(self, device: str, operation: str, task: A2ATaskResult) -> None:
+    async def _observe(self, device: str, operation: str, task: A2ATaskResult, *, stream: bool = False) -> None:
         key = (device, operation)
         if self._handles.get(key) != task.task_id:
             await asyncio.to_thread(self.store.save_handle, device, operation, task.task_id)
             self._handles[key] = task.task_id
+        if stream:
+            # Save the remote handle before any optional activity write can fail.
+            await asyncio.to_thread(self.store.record_peer_activity, device, operation)
         if task.state not in FINAL | {"rejected", "input_required"}:
             return
         current = await asyncio.to_thread(self.store.get, device, operation)
@@ -215,8 +218,7 @@ class BrokerDispatcher:
                     if not result.task_id:
                         continue
                     terminal_seen = result.state in FINAL | {"rejected", "input_required"}
-                    await asyncio.to_thread(self.store.record_peer_activity, device, operation)
-                    await self.observe(device, operation, result)
+                    await self.observe(device, operation, result, stream=True)
                     if terminal_seen:
                         return
             # EOF is not completion, including after receiving a valid handle.

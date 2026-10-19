@@ -17,6 +17,7 @@ from test_client_server_integration import (
     eventually,
     origin,
     snapshot,
+    unix_socket_ready,
 )
 from test_client_server_integration import postgres_schema as _postgres_schema
 from test_client_server_integration import stack as _stack
@@ -77,10 +78,7 @@ def start_legacy(stack, python, role):
         try:
             if role == "broker":
                 return httpx.get(stack.broker_url + "/healthz", timeout=0.2, trust_env=False).status_code == 200
-            with httpx.Client(
-                transport=httpx.HTTPTransport(uds=str(stack.directory / "client/client.sock")), timeout=0.2
-            ) as api:
-                return api.get("http://client/healthz").status_code == 200
+            return unix_socket_ready(stack.directory / "client/client.sock")
         except httpx.TransportError:
             return False
 

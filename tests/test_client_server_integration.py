@@ -434,13 +434,7 @@ class Stack:
         self.processes.append(process)
 
         def ready() -> bool:
-            try:
-                with httpx.Client(
-                    transport=httpx.HTTPTransport(uds=str(self.directory / "client/client.sock")), timeout=0.2
-                ) as client:
-                    return client.get("http://client/healthz").status_code == 200
-            except httpx.TransportError:
-                return False
+            return unix_socket_ready(self.directory / "client/client.sock")
 
         eventually(ready)
         return process
@@ -482,6 +476,20 @@ def origin(thread_id: str | None = None) -> dict[str, Any]:
         "callId": "integration-" + uuid4().hex,
         "x-codex-turn-metadata": {"thread_id": thread_id, "turn_id": str(uuid4())},
     }
+
+
+def unix_socket_ready(path: Path) -> bool:
+    # httpcore 1.0.9's synchronous Unix backend does not close sockets when
+    # connect() fails. Use an owned/closed probe before HTTP readiness; never
+    # change dependency code or suppress ResourceWarnings.
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as probe:
+            probe.settimeout(0.2)
+            probe.connect(str(path))
+        with httpx.Client(transport=httpx.HTTPTransport(uds=str(path)), timeout=0.2) as client:
+            return client.get("http://client/healthz").status_code == 200
+    except (OSError, httpx.TransportError):
+        return False
 
 
 def command(stack: Stack, action: str, meta: dict[str, Any], **arguments: Any) -> httpx.Response:
