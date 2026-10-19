@@ -16,6 +16,7 @@ from .connections import connection_name, state_path
 from .ssh_tunnel import SSHConfig, valid_host
 
 PREFIX = "HERMES_A2A_GATEWAY_CLIENT_"
+_DEFAULT_STATE = Path()
 
 
 @dataclass(frozen=True)
@@ -23,8 +24,7 @@ class ClientSettings:
     broker_url: str
     token: str = field(repr=False)
     payload_key: str = field(repr=False)
-    state_dir: Path = field(default_factory=Path)
-    connection: str = field(default_factory=connection_name)
+    state_dir: Path = _DEFAULT_STATE
     ca_file: str | None = None
     allow_loopback_http: bool = False
     inline_wait_seconds: float = 15
@@ -46,10 +46,12 @@ class ClientSettings:
     ssh_remote_port: int = 443
     ssh_tls_server_name: str | None = None
     ssh_connect_timeout_seconds: int = 10
+    connection: str = field(default_factory=connection_name)
+    previous_payload_keys: tuple[str, ...] = field(default=(), repr=False)
 
     def __post_init__(self) -> None:
         connection_name(self.connection)
-        if self.state_dir == Path():
+        if self.state_dir is _DEFAULT_STATE:
             object.__setattr__(self, "state_dir", state_path("client", self.connection))
         if self.ca_file is not None:
             try:
@@ -80,7 +82,8 @@ class ClientSettings:
         if not self.token or "\n" in self.token or "\r" in self.token:
             raise ValueError("CLIENT_TOKEN is required and must be a valid bearer token")
         try:
-            Fernet(self.payload_key.encode("ascii"))
+            for key in (self.payload_key, *self.previous_payload_keys):
+                Fernet(key.encode("ascii"))
         except (ValueError, UnicodeError) as exc:
             raise ValueError("CLIENT_PAYLOAD_KEY must be an environment-provided Fernet key") from exc
         for name in ("request_timeout_seconds", "retention_seconds", "payload_ttl_seconds"):
@@ -125,6 +128,9 @@ class ClientSettings:
             broker_url=get("BROKER_URL"),
             token=get("TOKEN"),
             payload_key=get("PAYLOAD_KEY"),
+            previous_payload_keys=tuple(k.strip() for k in get("PREVIOUS_PAYLOAD_KEYS").split(","))
+            if get("PREVIOUS_PAYLOAD_KEYS").strip()
+            else (),
             state_dir=Path(get("STATE_DIR", str(state_path("client")))),
             ca_file=get("CA_FILE") or None,
             allow_loopback_http=get("ALLOW_LOOPBACK_HTTP", "false").lower() == "true",

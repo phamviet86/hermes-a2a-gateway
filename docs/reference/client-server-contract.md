@@ -204,3 +204,16 @@ PostgreSQL migrations add nullable columns in place under the existing migration
 lock, preserving `broker_v06_*` identities. Existing running rows use their last
 lifecycle timestamp as a conservative start estimate. See the
 [v0.12 upgrade](../upgrades/upgrade-v0.12.md) for rollback.
+
+## v0.12 credential/key overlap
+
+`DEVICE_TOKENS` accepts either the existing string or a list of 1–2 distinct
+bearer tokens per device. All tokens remain globally unique and at least 32
+characters. Every overlapping token authenticates to the same device namespace;
+matching-token identity is never returned or logged. HTTP shapes are unchanged.
+
+Broker/client previous-key settings enable MultiFernet decryption overlap; new
+writes always use the current key. Readiness reports counts, not key identifiers
+or values. Old ciphertext is not rewritten. Retention across input, result,
+artifact, sender descriptor and event stores determines when an old key can be
+removed. See [rotation](../guides/rotation.md).

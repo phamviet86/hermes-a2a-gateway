@@ -87,9 +87,10 @@ class DeviceAuthentication:
         device = None
         if len(headers) == 1 and headers[0].startswith(b"Bearer "):
             token = headers[0][7:]
-            for candidate, secret in self.settings.device_tokens.items():
-                if hmac.compare_digest(token, secret.encode()):
-                    device = candidate
+            for candidate, value in self.settings.device_tokens.items():
+                for secret in [value] if isinstance(value, str) else value:
+                    if hmac.compare_digest(token, secret.encode()):
+                        device = candidate
         if device is None:
             await error_response(BrokerError("unauthorized", "valid device bearer token required", 401))(
                 scope, receive, send
@@ -429,7 +430,13 @@ def create_broker_app(
             return error_response(BrokerError("ledger_unavailable", "broker ledger unavailable", 503))
         except BrokerError as exc:
             return error_response(exc)
-        return JSONResponse({"ok": True, "timeout_warnings": settings.timeout_warnings})
+        return JSONResponse(
+            {
+                "ok": True,
+                "timeout_warnings": settings.timeout_warnings,
+                "key_rotation": await asyncio.to_thread(db().key_rotation),
+            }
+        )
 
     async def peer_policy(request: Request) -> Response:
         capability = getattr(peer_adapter, "capabilities", None)

@@ -445,6 +445,7 @@ class ClientService:
             "ok": True,
             "connection_name": self.settings.connection,
             "broker_origin": broker_origin(self.settings.broker_url),
+            "key_rotation": self.store.key_rotation(),
             "harness_identity_version": 1,
             "sender_context_version": 1,
             "native_delivery": self.native_status,
@@ -580,6 +581,11 @@ async def _doctor() -> dict[str, Any]:
         "ok": True,
         "tls_verification": True,
         "explicit_pull_available": True,
+        "key_rotation": {
+            "previous_keys": len(settings.previous_payload_keys),
+            "payloads_using_previous_keys": None,
+            "unreadable_payloads": None,
+        },
         "connection_name": settings.connection,
         "broker_origin": broker_origin(settings.broker_url),
         **connection_diagnostics(
@@ -597,6 +603,7 @@ async def _doctor() -> dict[str, Any]:
             response = await client.get("/diagnostics")
             response.raise_for_status()
             report["daemon"] = response.json()
+            report["key_rotation"] = report["daemon"].get("key_rotation", {"status": "unknown"})
             connection = report["daemon"].get("connection", {})
             report.update(connection)
             report["ok"] = connection.get("broker", {}).get("state") == "authenticated"

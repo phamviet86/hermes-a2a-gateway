@@ -630,3 +630,41 @@ def test_liveness_optional_for_old_snapshots_and_preserved_for_new(settings):
         assert view["last_peer_activity_at"] == instant and view["running_seconds"] >= 30
     finally:
         store.close()
+
+
+def test_client_key_rotation_counts_and_new_write_key(settings):
+    from cryptography.fernet import InvalidToken
+
+    owner = origin()
+    store = ClientStore(settings)
+    operation = store.create(owner, "fixture", [], 0)
+    store.close()
+    new = Fernet.generate_key().decode()
+    rotated_settings = replace(settings, payload_key=new, previous_payload_keys=(settings.payload_key,))
+    store = ClientStore(rotated_settings)
+    try:
+        assert store.payload(operation)["prompt"] == "fixture"
+        assert store.key_rotation() == {"previous_keys": 1, "payloads_using_previous_keys": 2, "unreadable_payloads": 0}
+        fresh = store.create(origin(), "new", [], 0)
+        assert Fernet(new.encode()).decrypt(store.row(fresh)["payload"])
+        with pytest.raises(InvalidToken):
+            Fernet(settings.payload_key.encode()).decrypt(store.row(fresh)["payload"])
+        assert new not in repr(rotated_settings) and settings.payload_key not in repr(rotated_settings)
+        store.accept_snapshot(snapshot(store, operation))
+        assert store.key_rotation()["payloads_using_previous_keys"] == 1
+        store.db.execute("UPDATE client_operations SET expires=0,payload_expires=0 WHERE operation_id=?", (operation,))
+        store.db.commit()
+        store.prune()
+        assert store.key_rotation()["payloads_using_previous_keys"] == 0
+    finally:
+        store.close()
+
+
+async def test_daemon_health_exposes_count_only_key_rotation(settings):
+    client = service(settings)
+    try:
+        report = client.health()["key_rotation"]
+        assert report == {"previous_keys": 0, "payloads_using_previous_keys": 0, "unreadable_payloads": 0}
+        assert settings.payload_key not in json.dumps(client.health())
+    finally:
+        await client.close()

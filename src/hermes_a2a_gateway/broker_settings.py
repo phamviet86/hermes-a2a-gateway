@@ -17,8 +17,9 @@ class BrokerSettings(BaseModel):
     model_config = ConfigDict(hide_input_in_errors=True)
 
     database_url: str = Field(repr=False)
-    device_tokens: dict[str, str] = Field(repr=False)
+    device_tokens: dict[str, str | list[str]] = Field(repr=False)
     encryption_key: str = Field(repr=False)
+    previous_encryption_keys: list[str] = Field(default_factory=list, repr=False)
     public_url: str = "https://localhost:8790"
     host: str = "127.0.0.1"
     port: int = Field(default=8790, ge=1, le=65535)
@@ -52,12 +53,19 @@ class BrokerSettings(BaseModel):
     def validate_policy(self) -> Self:
         if not self.database_url or not self.device_tokens:
             raise ValueError("PostgreSQL and device credentials are required")
-        if any(not k or len(k) > 128 or not v or len(v) < 32 for k, v in self.device_tokens.items()):
-            raise ValueError("device IDs must be bounded and tokens must contain at least 32 characters")
-        if len(set(self.device_tokens.values())) != len(self.device_tokens):
-            raise ValueError("each device requires a distinct token")
+        tokens = []
+        for device, value in self.device_tokens.items():
+            candidates = [value] if isinstance(value, str) else value
+            if not device or len(device) > 128 or not 1 <= len(candidates) <= 2:
+                raise ValueError("device IDs must be bounded and devices require 1-2 tokens")
+            if any(len(token) < 32 or "\n" in token or "\r" in token for token in candidates):
+                raise ValueError("device tokens must contain at least 32 characters without line breaks")
+            tokens.extend(candidates)
+        if len(set(tokens)) != len(tokens):
+            raise ValueError("each credential must be distinct")
         try:
-            Fernet(self.encryption_key.encode("ascii"))
+            for key in [self.encryption_key, *self.previous_encryption_keys]:
+                Fernet(key.encode("ascii"))
         except (ValueError, UnicodeError):
             raise ValueError("ENCRYPTION_KEY must be a Fernet key") from None
         host_url = f"http://{self.host if ':' not in self.host else '[' + self.host + ']'}"
@@ -89,6 +97,8 @@ class BrokerSettings(BaseModel):
                         values[name] = json.loads(raw)
                     except ValueError:
                         raise ValueError("DEVICE_TOKENS must be a JSON device-to-token object") from None
+                elif name == "previous_encryption_keys":
+                    values[name] = [key.strip() for key in raw.split(",")] if raw.strip() else []
                 else:
                     values[name] = raw
         return cls.model_validate(values)

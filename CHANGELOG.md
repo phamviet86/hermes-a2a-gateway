@@ -2,6 +2,8 @@
 
 ## 0.12.0 — Unreleased
 
+- Accept overlapping device tokens and previous payload keys with count-only rotation diagnostics; new writes use the current key. Restarts are still required.
+
 - Allow UTF-8 Markdown, CSV and validated JSON input references; infer omitted upload media types without changing quotas or untrusted framing.
 
 - Add bounded stream liveness and elapsed running time through additive PostgreSQL migrations and optional snapshot fields.

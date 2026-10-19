@@ -17,10 +17,11 @@ from pathlib import Path
 from typing import Any, ParamSpec, TypeVar
 from uuid import uuid4
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, MultiFernet
 
 from .client_settings import ClientSettings
 from .native_delivery import NativeOrigin, native_uuid
+from .payload_keys import key_usage
 from .sender_context import sender_context
 
 TERMINAL = frozenset({"completed", "failed", "canceled", "outcome_unknown"})
@@ -78,7 +79,10 @@ class ClientStore:
         except OSError as exc:
             os.close(self.lock_fd)
             raise RuntimeError("another client daemon owns this state directory") from exc
-        self.cipher = Fernet(settings.payload_key.encode("ascii"))
+        self.current_cipher = Fernet(settings.payload_key.encode("ascii"))
+        self.cipher = MultiFernet(
+            [self.current_cipher, *(Fernet(k.encode("ascii")) for k in settings.previous_payload_keys)]
+        )
         path = settings.state_dir / "client.sqlite3"
         if path.is_symlink():
             self.close_lock()
@@ -466,10 +470,22 @@ class ClientStore:
             )
 
     @locked
+    def key_rotation(self) -> dict[str, int]:
+        rows = self.db.execute(
+            "SELECT payload AS cipher FROM client_operations WHERE payload IS NOT NULL "
+            "UNION ALL SELECT sender_context AS cipher FROM client_operations WHERE sender_context IS NOT NULL"
+        )
+        return key_usage(
+            self.current_cipher, self.cipher, len(self.settings.previous_payload_keys), (row["cipher"] for row in rows)
+        )
+
+    @locked
     def prune(self) -> None:
         now = time.time()
         with self.db:
-            self.db.execute("UPDATE client_operations SET payload=NULL WHERE payload_expires<=?", (now,))
+            self.db.execute(
+                "UPDATE client_operations SET payload=NULL,sender_context=NULL WHERE payload_expires<=?", (now,)
+            )
             rows = self.db.execute(
                 "SELECT operation_id,snapshot FROM client_operations WHERE expires<=? AND expired=0", (now,)
             )

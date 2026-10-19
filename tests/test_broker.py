@@ -1430,3 +1430,57 @@ def test_text_reference_allowlist_and_json_validation(ledger, media, content, al
         with pytest.raises(BrokerError) as error:
             ledger.accept("a", request)
         assert error.value.code == "unsupported_artifact"
+
+
+async def test_device_token_overlap_and_no_secret_diagnostics(ledger, broker_settings, caplog):
+    new = "new-token-" + "n" * 40
+    settings = broker_settings.model_copy(update={"device_tokens": {"a": [TOKEN_A, new], "b": TOKEN_B}})
+    app = create_broker_app(settings, store=ledger, dispatch=False)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://broker.test") as api:
+        for token in (TOKEN_A, new):
+            response = await api.get(
+                "/v1/operations/" + str(uuid.uuid4()), headers={"Authorization": "Bearer " + token}
+            )
+            assert response.status_code == 404  # authenticated, operation absent
+    for values in ({"a": [TOKEN_A, new], "b": new}, {"a": []}, {"a": [new, new]}, {"a": [TOKEN_A, new, TOKEN_B]}):
+        with pytest.raises(ValueError) as error:
+            BrokerSettings.model_validate({**broker_settings.model_dump(), "device_tokens": values})
+        assert new not in str(error.value)
+    assert new not in repr(settings) and TOKEN_A not in repr(settings)
+    assert new not in caplog.text and TOKEN_A not in caplog.text
+
+
+def test_broker_key_rotation_reads_old_and_writes_current(ledger, broker_settings):
+    from cryptography.fernet import InvalidToken
+
+    request = command()
+    ledger.accept("a", request)
+    artifact = ledger.put_artifact("a", b"fixture", hashlib.sha256(b"fixture").hexdigest(), "text/plain")
+    before = ledger.key_rotation()
+    assert before["payloads_using_previous_keys"] == 0
+    new = Fernet.generate_key().decode()
+    settings = broker_settings.model_copy(
+        update={"encryption_key": new, "previous_encryption_keys": [broker_settings.encryption_key]}
+    )
+    rotated = BrokerStore(settings)
+    try:
+        report = rotated.key_rotation()
+        assert report["previous_keys"] == 1
+        assert report["payloads_using_previous_keys"] == 3  # request, event, artifact
+        assert report["unreadable_payloads"] == 0
+        assert rotated.artifact("a", artifact["artifact_id"])[1] == b"fixture"
+        assert rotated.get("a", request["operation_id"])["operation_id"] == request["operation_id"]
+        fresh = rotated._encrypt({"fixture": "new"})
+        assert Fernet(new.encode()).decrypt(fresh)
+        with pytest.raises(InvalidToken):
+            Fernet(broker_settings.encryption_key.encode()).decrypt(fresh)
+        assert new not in repr(settings) and broker_settings.encryption_key not in repr(settings)
+        assert new not in json.dumps(report)
+    finally:
+        rotated.close()
+
+
+def test_invalid_previous_broker_key_is_redacted(broker_settings):
+    with pytest.raises(ValueError) as error:
+        BrokerSettings.model_validate({**broker_settings.model_dump(), "previous_encryption_keys": ["private-invalid"]})
+    assert "private-invalid" not in str(error.value)

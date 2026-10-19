@@ -18,10 +18,11 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import psycopg
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 from psycopg.rows import dict_row
 
 from .broker_settings import BrokerSettings
+from .payload_keys import key_usage
 
 TEXT_INPUT_TYPES = frozenset({"text/plain", "text/markdown", "text/csv", "application/json"})
 
@@ -106,7 +107,10 @@ CREATE INDEX IF NOT EXISTS broker_v06_event_expiry ON broker_v06_events(expires_
 class BrokerStore:
     def __init__(self, settings: BrokerSettings):
         self.settings = settings
-        self._cipher = Fernet(settings.encryption_key.encode())
+        self._current_cipher = Fernet(settings.encryption_key.encode())
+        self._cipher = MultiFernet(
+            [self._current_cipher, *(Fernet(k.encode()) for k in settings.previous_encryption_keys)]
+        )
         self._mutex = threading.RLock()
         self.conn = psycopg.connect(
             settings.database_url, autocommit=True, row_factory=dict_row, client_encoding="UTF8"
@@ -433,6 +437,21 @@ class BrokerStore:
                     "dispatcher restarted after dispatch was claimed; no resend",
                 )
 
+    def key_rotation(self) -> dict[str, int]:
+        with self.transaction() as conn:
+            rows = conn.execute(
+                "SELECT cipher FROM broker_v06_payloads UNION ALL SELECT cipher FROM broker_v06_artifacts "
+                "UNION ALL SELECT cipher FROM broker_v06_events "
+                "UNION ALL SELECT result_cipher AS cipher FROM broker_v06_operations WHERE result_cipher IS NOT NULL "
+                "UNION ALL SELECT sender_context AS cipher FROM broker_v06_operations WHERE sender_context IS NOT NULL"
+            )
+            return key_usage(
+                self._current_cipher,
+                self._cipher,
+                len(self.settings.previous_encryption_keys),
+                (row["cipher"] for row in rows),
+            )
+
     def ping(self) -> None:
         with self.transaction() as conn:
             conn.execute("SELECT 1")
@@ -621,6 +640,11 @@ class BrokerStore:
                 self._purge_events(conn, row["device_id"])
             now = utcnow()
             conn.execute("DELETE FROM broker_v06_payloads WHERE expires_at<=%s", (now,))
+            conn.execute(
+                "UPDATE broker_v06_operations SET sender_context=NULL WHERE sender_context IS NOT NULL "
+                "AND result_expires_at IS NULL AND created_at<=%s",
+                (now - timedelta(seconds=self.settings.payload_ttl_seconds),),
+            )
             conn.execute("DELETE FROM broker_v06_artifacts WHERE expires_at<=%s", (now,))
             conn.execute(
                 "UPDATE broker_v06_operations SET result_cipher=NULL,sender_context=NULL WHERE result_expires_at<=%s",

@@ -1,5 +1,7 @@
 # Hermes A2A Gateway v0.12.0 (candidate)
 
+Device-token overlap and MultiFernet previous keys support staged rotation. Count-only readiness reports show retained old-key usage; restarts are still required.
+
 Text attachment inputs now include Markdown, CSV and valid JSON. Binary inputs remain unsupported.
 
 Running snapshots expose bounded `last_peer_activity_at` and `running_seconds`; silence never authorizes resubmission.
