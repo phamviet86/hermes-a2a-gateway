@@ -10,11 +10,11 @@ class AntigravityProfile:
     """The established Antigravity wrapper and permission behavior."""
 
     def parse(self, payload: Any) -> tuple[Any, Any, Any, Any] | None:
-        from .host_hook import SERVER
+        from .connections import server_name
 
         call = payload.get("toolCall", {})
         wrapper = call.get("args", {})
-        if call.get("name") != "call_mcp_tool" or wrapper.get("ServerName") != SERVER:
+        if call.get("name") != "call_mcp_tool" or wrapper.get("ServerName") != server_name():
             return None
         arguments = wrapper.get("Arguments")
         if isinstance(arguments, str):
@@ -26,15 +26,12 @@ class ClaudeProfile:
     """Observed Desktop Code PreToolUse shape; identity is host-owned."""
 
     def parse(self, payload: Any) -> tuple[str, str, str, dict[str, Any]] | None:
-        import os
-        import re
         from uuid import UUID
 
+        from .connections import server_name
         from .host_hook import BindingError, valid_call_id
 
-        server = os.environ.get("HERMES_A2A_GATEWAY_MCP_SERVER_NAME", "hermes-a2a-gateway")
-        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", server):
-            raise BindingError("invalid_hook_server_configuration")
+        server = server_name()
         if not isinstance(payload, dict) or not isinstance(payload.get("tool_name"), str):
             raise BindingError("invalid_host_hook_input")
         prefix = f"mcp__{server}__"

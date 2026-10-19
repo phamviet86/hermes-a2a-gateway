@@ -28,14 +28,16 @@ from pydantic import Field
 from . import __version__
 from .client import client_socket_path
 from .client_settings import PREFIX
+from .connections import broker_origin, connection_name, server_name
 from .host_identity import IdentityError, select_provider
 from .native_delivery import NativeOrigin
 
 mcp = MCPServer[Any](
-    "hermes-a2a-gateway",
+    server_name(),
     version=__version__,
     log_level="WARNING",
     instructions=(
+        f"Connection: {connection_name()}; broker origin: {broker_origin()}. "
         "Delegate with gateway_submit; each native thread has a stable gateway flow. "
         "A bounded inline wait may return the result. Late results may queue a reference to this same thread. "
         "Use gateway_get/gateway_wait to read results, including when native queue delivery is unavailable or unknown. "
@@ -80,9 +82,11 @@ async def invoke(ctx: Context[Any, Any], action: str, arguments: dict[str, Any])
             trust_env=False,
         ) as client:
             scoped = identity != {"harness": "codex", "instance": "default"}
-            if scoped or action == "submit":
+            if scoped or action == "submit" or connection_name() != "default":
                 health = await client.get("/healthz")
                 capabilities = health.json()
+                if capabilities.get("connection_name", "default") != connection_name():
+                    raise ValueError("daemon belongs to another connection")
                 if health.is_error or scoped and capabilities.get("harness_identity_version") != 1:
                     raise ValueError("daemon lacks trusted harness support")
                 if action == "submit" and capabilities.get("sender_context_version") != 1:
@@ -135,8 +139,8 @@ async def invoke(ctx: Context[Any, Any], action: str, arguments: dict[str, Any])
             except (httpx.HTTPError, ValueError):
                 pass
     return types.CallToolResult(
-        content=[types.TextContent(type="text", text=json.dumps(payload))],
-        structured_content=payload,
+        content=[types.TextContent(type="text", text=json.dumps({**payload, "connection": connection_name()}))],
+        structured_content={**payload, "connection": connection_name()},
         is_error=is_error,
     )
 
@@ -188,8 +192,10 @@ def with_identity(function: Callable[..., Any]) -> Callable[..., Any]:
                         }
                     }
                 return types.CallToolResult(
-                    content=[types.TextContent(type="text", text=json.dumps(payload))],
-                    structured_content=payload,
+                    content=[
+                        types.TextContent(type="text", text=json.dumps({**payload, "connection": connection_name()}))
+                    ],
+                    structured_content={**payload, "connection": connection_name()},
                     is_error=True,
                 )
         return await function(*bound.args, **bound.kwargs)
@@ -283,18 +289,19 @@ async def gateway_upload_artifact(
     except (OSError, ValueError, RuntimeError):
         payload = {"error": {"code": "invalid_local_artifact_or_metadata"}}
         return types.CallToolResult(
-            content=[types.TextContent(type="text", text=json.dumps(payload))],
-            structured_content=payload,
+            content=[types.TextContent(type="text", text=json.dumps({**payload, "connection": connection_name()}))],
+            structured_content={**payload, "connection": connection_name()},
             is_error=True,
         )
     return await invoke(ctx, "upload", {"data": base64.b64encode(data).decode(), "content_type": content_type})
 
 
 antigravity_server = MCPServer[Any](
-    "hermes-a2a-gateway",
+    server_name(),
     version=__version__,
     log_level="WARNING",
     instructions=(
+        f"Connection: {connection_name()}; broker origin: {broker_origin()}. "
         "Antigravity host-hook integration. Each tool call MUST have request_key: a new random UUID "
         "for a new action. Preserve that key AND exact arguments on a submit/read retry. "
         "Never retry an ambiguous submit with a new key: use get/wait on the saved operation_id. "
@@ -327,8 +334,8 @@ async def execute(tool: str, args: dict[str, Any]) -> types.CallToolResult:
             }
         }
         return types.CallToolResult(
-            content=[types.TextContent(type="text", text=json.dumps(payload))],
-            structured_content=payload,
+            content=[types.TextContent(type="text", text=json.dumps({**payload, "connection": connection_name()}))],
+            structured_content={**payload, "connection": connection_name()},
             is_error=True,
         )
     values = {k: v for k, v in args.items() if k != "request_key"}
@@ -399,10 +406,11 @@ for _tool, _annotations in (
 
 
 claude_server = MCPServer[Any](
-    "hermes-a2a-gateway",
+    server_name(),
     version=__version__,
     log_level="WARNING",
     instructions=(
+        f"Connection: {connection_name()}; broker origin: {broker_origin()}. "
         "Claude Code Desktop host-hook integration. Conversation identity comes from the host; "
         "do not pass or invent IDs. Submit once and save operation_id. "
         "Read results with gateway_get/gateway_wait only; no native push delivery. "

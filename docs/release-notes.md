@@ -1,3 +1,8 @@
+# Hermes A2A Gateway v0.12.0 (candidate)
+
+Named connections run one daemon per broker with separate credentials and state.
+The default connection keeps the v0.11.0 paths and identities.
+
 # Hermes A2A Gateway v0.11.0
 
 The MCP facade now selects pluggable host identity providers. Codex and Antigravity

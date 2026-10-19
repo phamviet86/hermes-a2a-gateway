@@ -1,5 +1,7 @@
 # Antigravity: cài v0.11.0 và giữ riêng từng hội thoại
 
+Named brokers: [Client connections](client-connections.md).
+
 Bản này dùng native PreToolUse hook của Antigravity2.22.0 và MCP riêng để giữ
 conversation ID. Mỗi chat có flow riêng; đổi model không tạo flow mới. Codex dùng
 facade hiện tại. Ba nhãn gửi Helen mặc định là `Antigravity`, `Gemini model`, `a2a`;

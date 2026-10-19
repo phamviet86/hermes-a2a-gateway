@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.0 — Unreleased
+
+- Named client connections isolate broker credentials, inboxes, MCP names and hook stores; default paths and IDs are unchanged.
+
 ## 0.11.0 — 2026-10-14
 
 - Unified MCP facade with operator-selected metadata and hook identity providers;

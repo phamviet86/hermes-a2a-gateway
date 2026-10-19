@@ -21,8 +21,10 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from .connections import server_name, state_path
+
 ENV = "HERMES_A2A_GATEWAY_ANTIGRAVITY_BINDING_DIR"
-SERVER = "hermes-a2a-gateway"
+SERVER = server_name()
 TTL = 120
 MAX_BINDINGS = 100_000
 MAX_DB_BYTES = 64 * 1024 * 1024
@@ -115,9 +117,7 @@ def private_file(path: Path) -> None:
 
 class Bindings:
     def __init__(self, directory: Path | None = None, *, profile: str = "antigravity"):
-        self.directory = directory or Path(
-            os.environ.get(ENV, str(Path.home() / ".local/state/hermes-a2a-gateway/antigravity"))
-        )
+        self.directory = directory or Path(os.environ.get(ENV, str(state_path("antigravity"))))
         if not self.directory.is_absolute():
             raise BindingError("unsafe_binding_storage")
         self.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -233,7 +233,7 @@ class ClaudeBindings(Bindings):
         directory = directory or Path(
             os.environ.get(
                 "HERMES_A2A_GATEWAY_CLAUDE_BINDING_DIR",
-                str(Path.home() / ".local/state/hermes-a2a-gateway/claude"),
+                str(state_path("claude")),
             )
         )
         super().__init__(directory, profile="claude")

@@ -345,6 +345,7 @@ class ClientStore:
                 self._receipt(operation_id, snapshot["result_id"], "delivered")
         return {
             **snapshot,
+            "connection": self.settings.connection,
             "submission_state": row["submission_state"],
             "delivery_state": row["delivery_state"],
             "queue_submission_id": row["queue_id"],

@@ -32,6 +32,7 @@ from starlette.routing import Route
 
 from .client_settings import PREFIX, ClientSettings
 from .client_store import ClientStore
+from .connections import broker_origin, connection_diagnostics, state_path
 from .native_delivery import (
     DesktopHostDelivery,
     NativeOrigin,
@@ -442,6 +443,8 @@ class ClientService:
     def health(self) -> dict[str, Any]:
         return {
             "ok": True,
+            "connection_name": self.settings.connection,
+            "broker_origin": broker_origin(self.settings.broker_url),
             "harness_identity_version": 1,
             "sender_context_version": 1,
             "native_delivery": self.native_status,
@@ -555,10 +558,7 @@ def create_client_app(service: ClientService, *, manage_lifecycle: bool = True) 
 
 
 def client_socket_path() -> Path:
-    return (
-        Path(os.environ.get(PREFIX + "STATE_DIR", str(Path.home() / ".local/state/hermes-a2a-gateway/client")))
-        / "client.sock"
-    )
+    return Path(os.environ.get(PREFIX + "STATE_DIR", str(state_path("client")))) / "client.sock"
 
 
 async def _doctor() -> dict[str, Any]:
@@ -570,7 +570,18 @@ async def _doctor() -> dict[str, Any]:
             "error": "invalid_client_configuration",
             "hint": "Set BROKER_URL, TOKEN, PAYLOAD_KEY; check CA_FILE.",
         }
-    report: dict[str, Any] = {"ok": True, "tls_verification": True, "explicit_pull_available": True}
+    report: dict[str, Any] = {
+        "ok": True,
+        "tls_verification": True,
+        "explicit_pull_available": True,
+        "connection_name": settings.connection,
+        "broker_origin": broker_origin(settings.broker_url),
+        **connection_diagnostics(
+            settings.connection,
+            settings.state_dir,
+            settings.ssh_local_port if settings.transport_mode == "ssh-tunnel" else None,
+        ),
+    }
     try:
         async with httpx.AsyncClient(
             transport=httpx.AsyncHTTPTransport(uds=str(settings.socket_path)),

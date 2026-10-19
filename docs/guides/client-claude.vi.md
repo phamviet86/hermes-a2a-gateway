@@ -1,5 +1,7 @@
 # Claude Code Desktop: cài đặt và kiểm tra v0.11.0
 
+Named brokers: [Client connections](client-connections.md).
+
 Phạm vi đầu tiên là **Code tab của Claude Desktop**, không phải chat thường.
 CLI/IDE, resume thực tế, khởi động lại process và liên thông CLI/Desktop **chưa
 được xác minh**. Đăng nhập Desktop không đồng nghĩa CLI đã đăng nhập; không trích

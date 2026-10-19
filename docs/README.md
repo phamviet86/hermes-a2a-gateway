@@ -14,6 +14,8 @@ product summary; use this page to find the right document. AI agents should read
 | [`history/`](history/README.md) | Releases up to v0.6, retired modes and investigations | Immutable evidence |
 | [`release-notes.md`](release-notes.md) | Notes for the current release; read by `scripts/publish_release.py` | Current |
 
+Named brokers: [Client connections](guides/client-connections.md).
+
 ## Guides
 
 | Document | Use it for |

@@ -41,7 +41,8 @@ def test_unsupported_provider_pair_fails_closed(harness, name):
 async def test_full_v010_schema_and_instruction_snapshots():
     snapshot = json.loads((Path(__file__).parent / "fixtures/mcp-v010.json").read_text())
     for name, server in [("codex", client_mcp.mcp), ("antigravity", client_mcp.antigravity_server)]:
-        assert server.instructions == snapshot[name]["instructions"]
+        assert server.instructions.startswith("Connection: default; broker origin: unconfigured. ")
+        assert server.instructions.endswith(snapshot[name]["instructions"])
         assert [t.model_dump(mode="json") for t in await server.list_tools()] == snapshot[name]["tools"]
 
 

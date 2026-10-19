@@ -1,5 +1,7 @@
 # Client: cài đặt và sử dụng với Codex Desktop
 
+Named brokers: [Client connections](client-connections.md).
+
 Hướng dẫn này dành cho **v0.11.0 client/server** của Hermes A2A Gateway. Codex trên máy cá nhân giao việc cho Hermes trên server; daemon giữ inbox local và lấy kết quả qua HTTPS/SSE. Package, lệnh và đăng ký MCP thống nhất tên `hermes-a2a-gateway`.
 
 ```text

@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 
 from cryptography.fernet import Fernet
 
+from .connections import connection_name, state_path
 from .ssh_tunnel import SSHConfig, valid_host
 
 PREFIX = "HERMES_A2A_GATEWAY_CLIENT_"
@@ -22,7 +23,8 @@ class ClientSettings:
     broker_url: str
     token: str = field(repr=False)
     payload_key: str = field(repr=False)
-    state_dir: Path = field(default_factory=lambda: Path.home() / ".local/state/hermes-a2a-gateway/client")
+    state_dir: Path = field(default_factory=Path)
+    connection: str = field(default_factory=connection_name)
     ca_file: str | None = None
     allow_loopback_http: bool = False
     inline_wait_seconds: float = 15
@@ -46,6 +48,9 @@ class ClientSettings:
     ssh_connect_timeout_seconds: int = 10
 
     def __post_init__(self) -> None:
+        connection_name(self.connection)
+        if self.state_dir == Path():
+            object.__setattr__(self, "state_dir", state_path("client", self.connection))
         if self.ca_file is not None:
             try:
                 ssl.create_default_context(cafile=self.ca_file)
@@ -120,7 +125,7 @@ class ClientSettings:
             broker_url=get("BROKER_URL"),
             token=get("TOKEN"),
             payload_key=get("PAYLOAD_KEY"),
-            state_dir=Path(get("STATE_DIR", str(Path.home() / ".local/state/hermes-a2a-gateway/client"))),
+            state_dir=Path(get("STATE_DIR", str(state_path("client")))),
             ca_file=get("CA_FILE") or None,
             allow_loopback_http=get("ALLOW_LOOPBACK_HTTP", "false").lower() == "true",
             inline_wait_seconds=float(get("INLINE_WAIT_SECONDS", "15")),
