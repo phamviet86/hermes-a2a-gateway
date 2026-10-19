@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import stat
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -91,3 +92,26 @@ def connection_diagnostics(name: str, state: Path, port: int | None) -> dict[str
         except (ValueError, TypeError, AttributeError, OSError):
             warnings.append("unreadable_connection_configuration")
     return {"configured_connections": found, "connection_warnings": sorted(set(warnings))}
+
+
+def claim_connection(directory: Path, name: str, legacy_file: str) -> None:
+    """Prevent explicit overrides from silently adopting another connection's store."""
+    connection_name(name)
+    marker = directory / "connection-name"
+    if not marker.exists() and name != "default" and (directory / legacy_file).exists():
+        raise ValueError("unmarked legacy store belongs to the default connection")
+    try:
+        fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    except FileExistsError:
+        pass
+    else:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write((name + "\n").encode("ascii"))
+            stream.flush()
+            os.fsync(stream.fileno())
+    info = marker.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600:
+        raise ValueError("unsafe connection marker")
+    with os.fdopen(os.open(marker, os.O_RDONLY | os.O_NOFOLLOW), "rb") as stream:
+        if stream.read(34) != (name + "\n").encode("ascii"):
+            raise ValueError("store belongs to another connection")

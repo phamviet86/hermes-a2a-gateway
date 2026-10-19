@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from .connections import server_name, state_path
+from .connections import claim_connection, connection_name, server_name, state_path
 
 ENV = "HERMES_A2A_GATEWAY_ANTIGRAVITY_BINDING_DIR"
 SERVER = server_name()
@@ -125,6 +125,7 @@ def private_file(path: Path) -> None:
 
 class Bindings:
     def __init__(self, directory: Path | None = None, *, profile: str = "antigravity"):
+        connection = connection_name()
         self.directory = directory or Path(os.environ.get(ENV, str(state_path("antigravity"))))
         if not self.directory.is_absolute():
             raise BindingError("unsafe_binding_storage")
@@ -151,6 +152,7 @@ class Bindings:
                 raise BindingError("binding_profile_conflict")
         elif profile != "antigravity" or marker.exists():
             raise BindingError("binding_profile_conflict")
+        claim_connection(self.directory, connection, "bindings.sqlite3")
         key_path = self.directory / "attestation.key"
         try:
             fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)

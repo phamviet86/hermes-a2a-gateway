@@ -31,9 +31,17 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
+      HERMES_A2A_GATEWAY_TEST_LEGACY_PYTHON: /tmp/hermes-v011/bin/python
       HERMES_A2A_GATEWAY_TEST_POSTGRES_DSN: postgresql://gateway:gateway-ci-only@127.0.0.1:5432/gateway_test
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Prepare exact v0.11 baseline for upgrade and cross-version tests
+        run: |
+          python -m venv /tmp/hermes-v011
+          /tmp/hermes-v011/bin/python -m pip install 'git+https://github.com/phamviet86/hermes-a2a-gateway.git@245b7179366f194caf7a76eeb5e87fb1ca3e864c'
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}

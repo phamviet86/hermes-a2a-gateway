@@ -34,3 +34,19 @@ to make rollback start. Return to v0.12 if old-key counts remain nonzero.
 Named connections require explicit v0.11 STATE_DIR, hook paths and server-name
 support; safest rollback is to stop those named registrations and retain their
 state until the upgraded wheel is restored. Do not repoint them at default state.
+
+## Development upgrade gate
+
+The process suite uses the exact v0.11 baseline commit
+`245b7179366f194caf7a76eeb5e87fb1ca3e864c`. Install its wheel in a separate
+CPython 3.11 virtual environment and set
+`HERMES_A2A_GATEWAY_TEST_LEGACY_PYTHON` to that environment's Python. With the
+normal disposable PostgreSQL DSN, run `pytest tests/test_upgrade_v012.py`.
+It seeds all four lifecycle cases with the actual old code, verifies receipts,
+IDs and SSE cursor after in-place migration, completes pending work without
+replaying running/unknown work, and exercises both old-client/new-broker and
+new-client/old-broker processes. CI prepares this baseline automatically.
+
+Connection markers reject adopting a different connection's state or hook store,
+even when explicit paths collide. Unmarked v0.11 stores belong to `default`; keep
+the default name during upgrade. No existing identity or ciphertext is renamed.

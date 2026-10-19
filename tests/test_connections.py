@@ -187,3 +187,51 @@ async def test_real_daemons_bind_distinct_sockets():
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait(timeout=5)
+
+
+def test_explicit_state_and_binding_overrides_cannot_adopt_other_connection(tmp_path, monkeypatch):
+    from hermes_a2a_gateway.client_store import ClientStore
+
+    settings = ClientSettings(
+        broker_url="https://broker.invalid",
+        token="fixture",
+        payload_key=Fernet.generate_key().decode(),
+        state_dir=tmp_path / "state",
+    )
+    store = ClientStore(settings)
+    store.close()
+    with pytest.raises(ValueError):
+        ClientStore(replace(settings, connection="other"))
+    # A failed claim releases its writer lock; the original connection still opens.
+    ClientStore(settings).close()
+    monkeypatch.setenv("HERMES_A2A_GATEWAY_CLIENT_CONNECTION", "one")
+    bindings = Bindings(tmp_path / "bindings")
+    bindings.close()
+    monkeypatch.setenv("HERMES_A2A_GATEWAY_CLIENT_CONNECTION", "two")
+    with pytest.raises(ValueError):
+        Bindings(tmp_path / "bindings")
+
+
+async def test_mcp_checks_connection_before_reading_default_override(tmp_path, monkeypatch):
+    from test_client_mcp import context
+
+    from hermes_a2a_gateway import client_mcp
+
+    posts = []
+
+    def handler(request):
+        if request.method == "GET":
+            return httpx.Response(200, json={"connection_name": "other"})
+        posts.append(request)
+        return httpx.Response(200, json={"result": "must-not-read"})
+
+    factory = httpx.AsyncClient
+    monkeypatch.setattr(
+        client_mcp.httpx,
+        "AsyncClient",
+        lambda **kwargs: factory(transport=httpx.MockTransport(handler), base_url="http://client"),
+    )
+    monkeypatch.delenv("HERMES_A2A_GATEWAY_CLIENT_CONNECTION", raising=False)
+    result = await client_mcp.gateway_get(str(uuid4()), context())
+    assert result.is_error and posts == []
+    assert result.structured_content["error"]["code"] == "connection_mismatch"

@@ -20,6 +20,7 @@ from uuid import uuid4
 from cryptography.fernet import Fernet, MultiFernet
 
 from .client_settings import ClientSettings
+from .connections import claim_connection
 from .native_delivery import NativeOrigin, native_uuid
 from .payload_keys import key_usage
 from .sender_context import sender_context
@@ -79,6 +80,11 @@ class ClientStore:
         except OSError as exc:
             os.close(self.lock_fd)
             raise RuntimeError("another client daemon owns this state directory") from exc
+        try:
+            claim_connection(settings.state_dir, settings.connection, "client.sqlite3")
+        except (ValueError, OSError):
+            self.close_lock()
+            raise
         self.current_cipher = Fernet(settings.payload_key.encode("ascii"))
         self.cipher = MultiFernet(
             [self.current_cipher, *(Fernet(k.encode("ascii")) for k in settings.previous_payload_keys)]

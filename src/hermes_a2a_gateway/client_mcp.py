@@ -71,6 +71,10 @@ def request_meta(ctx: Context[Any, Any]) -> dict[str, Any]:
     return dict(data)
 
 
+class ConnectionMismatch(ValueError):
+    """Operator configuration points at a different connection daemon."""
+
+
 async def invoke(ctx: Context[Any, Any], action: str, arguments: dict[str, Any]) -> types.CallToolResult:
     command_started = False
     try:
@@ -83,15 +87,14 @@ async def invoke(ctx: Context[Any, Any], action: str, arguments: dict[str, Any])
             trust_env=False,
         ) as client:
             scoped = identity != {"harness": "codex", "instance": "default"}
-            if scoped or action == "submit" or connection_name() != "default":
-                health = await client.get("/healthz")
-                capabilities = health.json()
-                if capabilities.get("connection_name", "default") != connection_name():
-                    raise ValueError("daemon belongs to another connection")
-                if health.is_error or scoped and capabilities.get("harness_identity_version") != 1:
-                    raise ValueError("daemon lacks trusted harness support")
-                if action == "submit" and capabilities.get("sender_context_version") != 1:
-                    raise ValueError("daemon lacks sender context support")
+            health = await client.get("/healthz")
+            capabilities = health.json()
+            if capabilities.get("connection_name", "default") != connection_name():
+                raise ConnectionMismatch("daemon belongs to another connection")
+            if health.is_error or scoped and capabilities.get("harness_identity_version") != 1:
+                raise ValueError("daemon lacks trusted harness support")
+            if action == "submit" and capabilities.get("sender_context_version") != 1:
+                raise ValueError("daemon lacks sender context support")
             command_started = True
             wire_action = action if identity == {"harness": "codex", "instance": "default"} else "harness_v1/" + action
             response = await client.post(
@@ -100,6 +103,16 @@ async def invoke(ctx: Context[Any, Any], action: str, arguments: dict[str, Any])
             )
             payload = response.json()
             is_error = response.is_error or "error" in payload and payload.get("error") is not None
+    except ConnectionMismatch:
+        payload, is_error = (
+            {
+                "error": {
+                    "code": "connection_mismatch",
+                    "message": "Daemon connection differs from MCP configuration; check STATE_DIR.",
+                }
+            },
+            True,
+        )
     except (ValueError, RuntimeError, AttributeError):
         payload, is_error = (
             {"error": {"code": "native_metadata_required", "message": "Host thread/turn/call metadata required."}},
