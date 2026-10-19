@@ -43,13 +43,14 @@ class HermesBrokerPeer:
         if claim.get("sender_context") is not None:
             message["metadata"] = {"sender_context": SenderContext.model_validate(claim["sender_context"]).model_dump()}
         # Hermes does not consistently consume raw file parts. Only UTF-8
-        # text/plain operation inputs pass ledger validation; supply them as text
+        # allowlisted text operation inputs pass ledger validation; supply them as text
         # with explicit untrusted-reference framing, never tool/system instructions.
         if claim["attachments"]:
             references = [
                 {
                     "artifact_id": descriptor["artifact_id"],
                     "sha256": descriptor["sha256"],
+                    "content_type": descriptor["content_type"],
                     "text": content.decode("utf-8"),
                 }
                 for descriptor, content in claim["attachments"]

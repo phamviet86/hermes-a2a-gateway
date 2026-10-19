@@ -34,7 +34,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "gateway_list": {"limit": 10, "include_finished": True},
     "gateway_wait": {"timeout": 30.0},
     "gateway_cancel": {},
-    "gateway_upload_artifact": {"content_type": "application/octet-stream"},
+    "gateway_upload_artifact": {"content_type": None},
 }
 REQUIRED = {
     "gateway_submit": {"prompt"},
@@ -106,7 +106,7 @@ def claude_values(tool: str, arguments: Any) -> dict[str, Any]:
         not isinstance(artifacts, list) or len(artifacts) > 16 or any(not isinstance(value, str) for value in artifacts)
     ):
         raise BindingError("invalid_binding_request")
-    if "content_type" in values and not isinstance(values["content_type"], str):
+    if values.get("content_type") is not None and not isinstance(values["content_type"], str):
         raise BindingError("invalid_binding_request")
     return values
 

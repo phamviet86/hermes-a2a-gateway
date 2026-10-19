@@ -16,6 +16,7 @@ import sqlite3
 import stat
 from collections.abc import Callable
 from functools import wraps
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Annotated, Any, cast
 
@@ -308,7 +309,7 @@ async def gateway_cancel(operation_id: str, ctx: Context[Any, Any]) -> ToolResul
 async def gateway_upload_artifact(
     path: str,
     ctx: Context[Any, Any],
-    content_type: str = "application/octet-stream",
+    content_type: str | None = None,
 ) -> ToolResult:
     """Explicitly upload one bounded regular local file as inert bytes. No remote URL or broker path is accepted."""
     try:
@@ -348,6 +349,13 @@ async def gateway_upload_artifact(
             },
             is_error=True,
         )
+    if content_type is None:
+        content_type = {
+            ".txt": "text/plain",
+            ".md": "text/markdown",
+            ".csv": "text/csv",
+            ".json": "application/json",
+        }.get(Path(path).suffix.lower(), "application/octet-stream")
     return await invoke(ctx, "upload", {"data": base64.b64encode(data).decode(), "content_type": content_type})
 
 
@@ -468,7 +476,7 @@ async def antigravity_gateway_cancel(operation_id: str, request_key: Key) -> typ
 async def antigravity_gateway_upload_artifact(
     path: str,
     request_key: Key,
-    content_type: str = "application/octet-stream",
+    content_type: str | None = None,
 ) -> types.CallToolResult:
     """Upload one explicitly requested bounded file after host provenance verification."""
     return await execute(

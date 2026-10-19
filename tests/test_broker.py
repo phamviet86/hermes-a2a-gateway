@@ -1407,3 +1407,26 @@ def test_two_minutes_of_activity_has_five_writes_and_freezes_terminal(ledger, mo
     final = ledger.get("a", request["operation_id"])
     assert final["running_seconds"] == 120
     assert final["last_peer_activity_at"] == snapshot["last_peer_activity_at"]
+
+
+@pytest.mark.parametrize(
+    "media,content,allowed",
+    [
+        ("text/markdown", b"# Untrusted reference", True),
+        ("TEXT/CSV; charset=utf-8", b"a,b\n1,2", True),
+        ("application/json", b'{"key": 1}', True),
+        ("application/json", b"{invalid", False),
+        ("application/json", b"NaN", False),
+        ("text/markdown", b"\xff", False),
+        ("application/pdf", b"not-input", False),
+    ],
+)
+def test_text_reference_allowlist_and_json_validation(ledger, media, content, allowed):
+    artifact = ledger.put_artifact("a", content, hashlib.sha256(content).hexdigest(), media)
+    request = command(artifact_ids=[artifact["artifact_id"]])
+    if allowed:
+        assert ledger.accept("a", request)[1]
+    else:
+        with pytest.raises(BrokerError) as error:
+            ledger.accept("a", request)
+        assert error.value.code == "unsupported_artifact"

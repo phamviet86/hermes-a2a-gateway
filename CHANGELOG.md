@@ -2,6 +2,8 @@
 
 ## 0.12.0 — Unreleased
 
+- Allow UTF-8 Markdown, CSV and validated JSON input references; infer omitted upload media types without changing quotas or untrusted framing.
+
 - Add bounded stream liveness and elapsed running time through additive PostgreSQL migrations and optional snapshot fields.
 
 - Diagnose receiver reply timeouts with structured reasons or operator-pinned exact sentinels; warn on insufficient broker/receiver timeout margin.

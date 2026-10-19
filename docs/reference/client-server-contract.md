@@ -47,9 +47,14 @@ API prefix `/v1`. The broker generates no native Desktop messages.
   filesystem paths or URLs may be supplied to the broker. Enforce retention and
   device quotas; do not advertise antivirus scanning without a scanner.
 
-Only validated UTF-8 `text/plain` uploads can be operation inputs in this beta.
+Validated UTF-8 `text/plain`, `text/markdown`, `text/csv` and `application/json`
+uploads can be operation inputs. Media types are compared case-insensitively
+without parameters; JSON must also parse as JSON.
 The Hermes adapter includes their bounded content as explicitly delimited untrusted
-reference text. Other MIME types remain inert upload/download objects and are
+reference text. Each reference includes `content_type` in addition to its ID,
+checksum and text. The framing remains untrusted data, never instructions.
+Combined prompt and attachment size limits and device quotas are unchanged.
+Other MIME types remain inert upload/download objects and are
 rejected as operation attachments before acceptance; general multimodal agent
 interpretation is not supported.
 

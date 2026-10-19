@@ -23,6 +23,13 @@ from psycopg.rows import dict_row
 
 from .broker_settings import BrokerSettings
 
+TEXT_INPUT_TYPES = frozenset({"text/plain", "text/markdown", "text/csv", "application/json"})
+
+
+def reject_json_constant(value: str) -> None:
+    raise ValueError("nonstandard JSON constant")
+
+
 FINAL = frozenset({"completed", "failed", "canceled"})
 TERMINAL = FINAL | {"outcome_unknown"}
 
@@ -229,15 +236,22 @@ class BrokerStore:
             total_bytes = len(request["prompt"].encode("utf-8"))
             for artifact_id in request["artifact_ids"]:
                 descriptor, content = self._artifact(conn, device, artifact_id)
-                if descriptor["content_type"].split(";", 1)[0].strip().lower() != "text/plain":
+                media_type = descriptor["content_type"].split(";", 1)[0].strip().lower()
+                if media_type not in TEXT_INPUT_TYPES:
                     raise BrokerError(
-                        "unsupported_artifact", "Hermes operation inputs support UTF-8 text/plain only", 422
+                        "unsupported_artifact",
+                        "Inputs support UTF-8 text/plain, text/markdown, text/csv, application/json only",
+                        422,
                     )
                 try:
-                    content.decode("utf-8")
-                except UnicodeDecodeError:
+                    text = content.decode("utf-8")
+                    if media_type == "application/json":
+                        json.loads(text, parse_constant=reject_json_constant)
+                except (ValueError, RecursionError):
                     raise BrokerError(
-                        "unsupported_artifact", "input text artifact must contain valid UTF-8", 422
+                        "unsupported_artifact",
+                        "input must be UTF-8 text/plain, text/markdown, text/csv, or valid application/json",
+                        422,
                     ) from None
                 total_bytes += len(content)
             if total_bytes > self.settings.max_artifact_bytes:

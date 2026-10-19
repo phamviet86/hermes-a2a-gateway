@@ -70,3 +70,27 @@ async def test_upload_is_explicit_bounded_regular_file_and_never_sends_path(tmp_
     monkeypatch.setenv("HERMES_A2A_GATEWAY_CLIENT_MAX_UPLOAD_BYTES", "2")
     assert (await client_mcp.gateway_upload_artifact(str(file), context())).is_error
     assert len(recorded) == 1
+
+
+async def test_upload_media_inference_and_explicit_override(tmp_path, monkeypatch):
+    recorded = []
+
+    async def invoke(ctx, action, arguments):
+        recorded.append(arguments)
+        return arguments
+
+    monkeypatch.setattr(client_mcp, "invoke", invoke)
+    for extension, media in {
+        ".md": "text/markdown",
+        ".CSV": "text/csv",
+        ".json": "application/json",
+        ".txt": "text/plain",
+        ".pdf": "application/octet-stream",
+    }.items():
+        file = tmp_path / ("input" + extension)
+        file.write_text("fixture")
+        result = await client_mcp.gateway_upload_artifact(str(file), context())
+        assert result["content_type"] == media
+        result = await client_mcp.gateway_upload_artifact(str(file), context(), "application/octet-stream")
+        assert result["content_type"] == "application/octet-stream"
+    assert len(recorded) == 10

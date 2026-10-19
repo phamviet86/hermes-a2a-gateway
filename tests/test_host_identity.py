@@ -43,9 +43,16 @@ async def test_full_v010_schema_and_instruction_snapshots():
     for name, server in [("codex", client_mcp.mcp), ("antigravity", client_mcp.antigravity_server)]:
         assert server.instructions.startswith("Connection: default; broker origin: unconfigured. ")
         assert server.instructions.endswith(snapshot[name]["instructions"])
-        assert [t.model_dump(mode="json") for t in await server.list_tools() if t.name != "gateway_list"] == snapshot[
-            name
-        ]["tools"]
+        actual = [t.model_dump(mode="json") for t in await server.list_tools() if t.name != "gateway_list"]
+        upload = next(t for t in actual if t["name"] == "gateway_upload_artifact")
+        assert upload["input_schema"]["properties"]["content_type"] == {
+            "anyOf": [{"type": "string"}, {"type": "null"}],
+            "default": None,
+            "title": "Content Type",
+        }
+        old_upload = next(t for t in snapshot[name]["tools"] if t["name"] == "gateway_upload_artifact")
+        upload["input_schema"]["properties"]["content_type"] = old_upload["input_schema"]["properties"]["content_type"]
+        assert actual == snapshot[name]["tools"]
 
 
 def test_unified_entrypoint_selects_hook_schema(monkeypatch):
