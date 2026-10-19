@@ -293,3 +293,12 @@ base64/JSON and encryption copies: allow several times the maximum upload size p
 concurrent request. Default client upload is8MiB and broker upload10MiB; a32MiB
 configured ceiling is not a32MiB total-RAM guarantee. This is not a public
 multi-tenant/high-throughput or zero-copy streaming service.
+
+## Long task budgets
+
+For authorized long jobs, configure Hermes `A2A_REPLY_TIMEOUT=1800` and broker
+`HERMES_A2A_GATEWAY_BROKER_PEER_TIMEOUT_SECONDS=1860`, plus
+`HERMES_A2A_GATEWAY_BROKER_EXPECTED_PEER_REPLY_SECONDS=1800`. Review the Hermes
+per-agent `timeout` too. A stuck operation holds its flow longer. Client waits
+remain bounded at 60 seconds; use get/wait on the original operation ID.
+See the [timeout chain](../reference/hermes-compatibility.md#timeout-chain-v012).

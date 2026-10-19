@@ -441,3 +441,12 @@ Không đưa secret vào tài liệu, lệnh mẫu chứa giá trị thật ho�
 Khởi động Hermes trước, rồi broker và client. Kiểm tra doctor và mapping session
 trước khi chạy smoke test. Đây là giới hạn tốc độ, không phải cơ chế phát hiện
 mọi vòng lặp giữa các agent; không vô hiệu hóa các phê duyệt công cụ của Hermes.
+
+## Tác vụ dài
+
+Đặt Hermes `A2A_REPLY_TIMEOUT=1800`, broker
+`HERMES_A2A_GATEWAY_BROKER_PEER_TIMEOUT_SECONDS=1860` và
+`HERMES_A2A_GATEWAY_BROKER_EXPECTED_PEER_REPLY_SECONDS=1800`; kiểm tra cả
+`timeout` của agent Hermes. Tác vụ kẹt sẽ giữ flow lâu hơn. Client chỉ đợi tối đa
+60 giây mỗi lần; tiếp tục get/wait bằng operation ID cũ, không tự gửi lại.
+Xem [chuỗi timeout](../reference/hermes-compatibility.md#timeout-chain-v012).

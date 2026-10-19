@@ -9,7 +9,7 @@ from typing import Any
 from .models import A2ATaskResult
 
 DIAGNOSTICS_URI = "https://github.com/phamviet86/hermes-a2a-gateway/extensions/diagnostics/v1"
-REASONS = {"context_rate_limited", "context_turn_limit", "input_required", "peer_rejected"}
+REASONS = {"context_rate_limited", "context_turn_limit", "input_required", "peer_rejected", "peer_reply_timeout"}
 ACTIONS = {"wait_then_submit_new", "inspect_operation", "contact_operator", "provide_input"}
 
 
@@ -74,3 +74,17 @@ def peer_capabilities(value: Any) -> dict[str, Any]:
     if value.get("patch_version") == "0.8.0":
         output["patch_version"] = "0.8.0"
     return output
+
+
+PINNED_COMPAT_COMMIT = "490e6b5966de330285905f52ebaee23c842dc3ea"
+TIMEOUT_SENTINELS = {"[agent did not reply in time]", "[profile did not reply in time]"}
+
+
+def peer_reply_timed_out(task: A2ATaskResult, compat_commit: str | None = None) -> bool:
+    if task.state != "failed":
+        return False
+    metadata = task.raw.get("metadata")
+    value = metadata.get(DIAGNOSTICS_URI) if isinstance(metadata, dict) else None
+    if isinstance(value, dict) and isinstance(value.get("reason"), str) and value["reason"] in REASONS:
+        return value["reason"] == "peer_reply_timeout"
+    return compat_commit == PINNED_COMPAT_COMMIT and task.text in TIMEOUT_SENTINELS

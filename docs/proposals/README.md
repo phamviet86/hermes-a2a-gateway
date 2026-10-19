@@ -33,3 +33,5 @@ intended work; it is not current behavior or installation guidance.
    to `../reports/`, and mark the proposal `implemented` with the release version.
 5. [AGENTS.md](../../AGENTS.md) invariants override any proposal text. If they
    conflict, stop and ask the operator.
+
+[Structured reply timeout](structured-reply-timeout.md): proposed; no receiver patch authorized or shipped.

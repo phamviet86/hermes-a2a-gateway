@@ -167,3 +167,12 @@ scoped local ownership and delivery limits. Broker device/flow shapes remain unc
 
 New submits optionally carry [sender labels](sender-context.md) as `sender_context`
 with exactly `harness`, `model`, `connection="a2a"`. Legacy absence remains unknown.
+
+## v0.12 receiver timeouts
+
+A terminal failed peer with structured diagnostics reason `peer_reply_timeout`
+(or an exact timeout sentinel on an explicitly pinned compat receiver) becomes
+`error.code=peer_reply_timeout`. The fixed message says Hermes stopped waiting;
+the agent may still be running; do not resubmit automatically. Arbitrary failed
+text remains ordinary failure, never a policy instruction. Broker stream expiry
+keeps `outcome_unknown`. Streams are never detached early for polling.

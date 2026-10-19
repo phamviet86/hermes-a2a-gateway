@@ -95,3 +95,10 @@ only, never prompts or results. It neither calls the broker nor consumes deliver
 Use `include_finished=false` to focus on unfinished/unknown work. Never resubmit
 while a matching operation exists; `request_key` is the stored call identity, not
 permission to replay a mutation. Hook hosts require an attestation for listing too.
+
+## Receiver reply timeout
+
+On `peer_reply_timeout`, tell the user that Hermes stopped waiting and the agent
+may still be running. Check with the server owner before sending new work. Never
+automatically resubmit; broker transport timeout is instead `outcome_unknown` and
+requires reconciliation using the saved remote handle.

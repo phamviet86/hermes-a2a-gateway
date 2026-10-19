@@ -1,5 +1,7 @@
 # Hermes A2A Gateway v0.12.0 (candidate)
 
+Receiver timeout diagnostics distinguish `peer_reply_timeout` from ambiguous broker transport expiry. Configure long-task budgets together; never replay uncertain work.
+
 `gateway_list` recovers lost operation IDs locally within the calling conversation.
 
 Named connections run one daemon per broker with separate credentials and state.

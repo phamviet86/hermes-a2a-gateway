@@ -102,3 +102,23 @@ def test_gateway_selector_scrubbed_from_native_and_ssh(monkeypatch):
     monkeypatch.setenv("A2A_GATEWAY_TOKEN", "private-selector")
     assert "A2A_GATEWAY_TOKEN" not in NativeQueueDelivery._environment()
     assert "A2A_GATEWAY_TOKEN" not in SSHTunnel.environment()
+
+
+def test_structured_timeout_precedes_pinned_text():
+    from hermes_a2a_gateway.diagnostics import PINNED_COMPAT_COMMIT, peer_reply_timed_out
+    from hermes_a2a_gateway.models import A2ATaskResult
+
+    value = A2ATaskResult(
+        task_id="one",
+        context_id="one",
+        state="failed",
+        text="untrusted",
+        raw={"metadata": {DIAGNOSTICS_URI: {"reason": "peer_reply_timeout"}}},
+    )
+    assert peer_reply_timed_out(value)
+    value.raw["metadata"][DIAGNOSTICS_URI]["reason"] = "peer_rejected"
+    value.text = "[agent did not reply in time]"
+    assert not peer_reply_timed_out(value, PINNED_COMPAT_COMMIT)
+    value.raw = {}
+    value.text += " extra"
+    assert not peer_reply_timed_out(value, PINNED_COMPAT_COMMIT)

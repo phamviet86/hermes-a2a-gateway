@@ -1337,3 +1337,43 @@ async def test_empty_sse_last_event_id_starts_at_zero(ledger, broker_settings):
     )
     assert response.status_code == 200
     await response.body_iterator.aclose()
+
+
+@pytest.mark.parametrize("text", ["[agent did not reply in time]", "[profile did not reply in time]"])
+async def test_pinned_receiver_timeout_is_fixed_error(ledger, broker_settings, text):
+    from hermes_a2a_gateway.diagnostics import PINNED_COMPAT_COMMIT
+
+    settings = broker_settings.model_copy(update={"peer_compat_commit": PINNED_COMPAT_COMMIT})
+    request = command()
+    ledger.accept("a", request)
+    dispatcher = BrokerDispatcher(ledger, FakePeer(), settings)
+    await dispatcher.observe("a", request["operation_id"], task(state="failed", text=text))
+    result = ledger.get("a", request["operation_id"])
+    assert result["error"]["code"] == "peer_reply_timeout"
+    assert result["result"] is None
+    assert text not in result["error"]["message"]
+    ledger.acquire_dispatcher()
+    await settle(dispatcher)
+    assert dispatcher.peer.submissions == []
+    await dispatcher.aclose()
+
+
+async def test_unverified_receiver_text_is_not_policy(ledger, broker_settings):
+    request = command()
+    ledger.accept("a", request)
+    dispatcher = BrokerDispatcher(ledger, FakePeer(), broker_settings)
+    await dispatcher.observe("a", request["operation_id"], task(state="failed", text="[agent did not reply in time]"))
+    result = ledger.get("a", request["operation_id"])
+    assert result["error"] is None
+    assert result["result"]["text"] == "[agent did not reply in time]"
+
+
+async def test_timeout_margin_is_advisory_and_readiness_visible(ledger, broker_settings, caplog):
+    settings = broker_settings.model_copy(update={"expected_peer_reply_seconds": 300})
+    app = create_broker_app(settings, store=ledger, dispatch=False)
+    assert "peer_timeout_margin" in caplog.text
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://broker.test") as client:
+        report = (await client.get("/healthz")).json()
+        assert report["ok"] is True and report["timeout_warnings"] == ["peer_timeout_margin"]
+    assert broker_settings.timeout_warnings == []
+    assert settings.model_copy(update={"peer_timeout_seconds": 330}).timeout_warnings == []

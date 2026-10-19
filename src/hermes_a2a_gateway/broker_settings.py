@@ -36,6 +36,18 @@ class BrokerSettings(BaseModel):
     max_concurrent_streams: int = Field(default=4, ge=1, le=32)
     peer_timeout_seconds: float = Field(default=300, ge=1, le=3600)
 
+    expected_peer_reply_seconds: float | None = Field(default=None, gt=0, le=86400)
+    peer_compat_commit: str | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
+
+    @property
+    def timeout_warnings(self) -> list[str]:
+        if (
+            self.expected_peer_reply_seconds is not None
+            and self.peer_timeout_seconds < self.expected_peer_reply_seconds + 30
+        ):
+            return ["peer_timeout_margin"]
+        return []
+
     @model_validator(mode="after")
     def validate_policy(self) -> Self:
         if not self.database_url or not self.device_tokens:

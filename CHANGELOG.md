@@ -2,6 +2,8 @@
 
 ## 0.12.0 — Unreleased
 
+- Diagnose receiver reply timeouts with structured reasons or operator-pinned exact sentinels; warn on insufficient broker/receiver timeout margin.
+
 - Add conversation-scoped, read-only `gateway_list` to recover operation IDs without resubmission.
 
 - Named client connections isolate broker credentials, inboxes, MCP names and hook stores; default paths and IDs are unchanged.

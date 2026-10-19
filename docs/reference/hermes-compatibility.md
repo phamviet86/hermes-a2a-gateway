@@ -84,3 +84,31 @@ already-patched baseline at Hermes `722bcedb382ef632aeb262b80bcfbff5a902494b`.
 They preserve the existing policy and unrelated modifications. See
 [ordered upgrade and rollback](../upgrades/upgrade-v0.9.md). The default patch still targets
 `490e6b5`; neither variant permits a force apply or arbitrary revision.
+
+## Timeout chain (v0.12)
+
+| Layer | Setting / range | Outcome |
+| --- | --- | --- |
+| Client inline/tool wait | submit wait and wait timeout, 0–60 s | Returns current snapshot; Hermes keeps running. |
+| Broker stream | `HERMES_A2A_GATEWAY_BROKER_PEER_TIMEOUT_SECONDS`, default 300, max 3600 s | Loss of a definitive terminal event becomes `outcome_unknown`; reconcile only the saved handle. |
+| Hermes receiver reply | `A2A_REPLY_TIMEOUT`, default 300 s | Receiver can return failed with `[agent did not reply in time]` or `[profile did not reply in time]`; execution may continue. |
+| Hermes per-agent execution | `timeout` in A2A agent configuration (falls back to reply timeout) | Limits that agent subprocess; an ordinary failed task does not prove absence of earlier effects. |
+| Hermes orphan sweep | `_orphan_timeout()`, reply timeout clamped to 300–86400 s | Marks orphaned receiver tasks failed; distinct from the stream budget and client wait. |
+
+Keep draining the initial stream through its terminal event; disconnecting early
+can stop Hermes. Set `HERMES_A2A_GATEWAY_BROKER_EXPECTED_PEER_REPLY_SECONDS`
+to the operator's configured reply budget. The broker warns at startup and in
+`/healthz.timeout_warnings` if its stream budget is less than that budget + 30 s.
+It never reads Hermes configuration files.
+
+Structured diagnostics reason `peer_reply_timeout` takes precedence over text.
+The current pinned receiver does not emit that reason. Exact sentinel fallback
+requires explicit operator attestation through
+`HERMES_A2A_GATEWAY_BROKER_PEER_COMPAT_COMMIT=490e6b5966de330285905f52ebaee23c842dc3ea`
+(the exact upstream commit in the shipped compat manifest). Unverified receiver
+versions keep ordinary failure behavior. Do not infer the installed receiver's
+commit from the gateway wheel version. No vendored receiver is changed.
+
+`peer_reply_timeout` means: Hermes stopped waiting; the agent may still be
+running; do not resubmit automatically. Check with the server owner before new
+work, using existing operation/remote task evidence.
