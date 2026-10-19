@@ -46,13 +46,10 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-      - run: python -m pip install --ignore-requires-python -e '.[dev]'
+      - run: python scripts/install_candidate.py
       - name: Exercise the broker with a real PostgreSQL ledger and fake A2A peer
         run: pytest --cov=hermes_a2a_gateway --cov-report=term-missing
   quality:
-    env:
-      # Candidate interpreters run before support metadata is widened.
-      PIP_IGNORE_REQUIRES_PYTHON: "1"
     name: Python ${{ matrix.python }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
@@ -70,7 +67,7 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: pip
       - name: Install project and development tools
-        run: python -m pip install --upgrade pip && python -m pip install --ignore-requires-python -e '.[dev]'
+        run: python -m pip install --upgrade pip && python scripts/install_candidate.py
       - name: Compile
         run: python -m compileall -q src tests scripts
       - name: Lint and format check
@@ -86,7 +83,7 @@ jobs:
           python -m build
           python -m twine check dist/*
           python scripts/check_dist.py dist
-          python scripts/check_wheel_install.py dist/*.whl
+          python scripts/check_wheel_install.py --candidate dist/*.whl
           python scripts/stage_compat_assets.py dist
           python scripts/write_sha256sums.py dist
           python scripts/write_sha256sums.py --check dist

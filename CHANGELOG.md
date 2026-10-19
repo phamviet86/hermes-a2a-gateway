@@ -2,6 +2,8 @@
 
 ## 0.12.0 — Unreleased
 
+- Extend CI to Python 3.11–3.13 (Linux/macOS), with PostgreSQL on 3.11/3.13 and real v0.11 upgrade tests. Release metadata remains Python 3.11-only until the full remote matrix passes; no dependency bounds were raised.
+
 - Accept overlapping device tokens and previous payload keys with count-only rotation diagnostics; new writes use the current key. Restarts are still required.
 
 - Allow UTF-8 Markdown, CSV and validated JSON input references; infer omitted upload media types without changing quotas or untrusted framing.

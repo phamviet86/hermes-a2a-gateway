@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import closing
 
 import httpx
 import pytest
@@ -250,7 +251,7 @@ def test_v06_sqlite_copy_preserves_identity_ciphertext_receipts_and_unknown_deli
     old_dir = tmp_path / "v06"
     old_dir.mkdir(mode=0o700)
     original = old_dir / "client.sqlite3"
-    with sqlite3.connect(original) as old:
+    with closing(sqlite3.connect(original)) as old, old:
         old.executescript(V06_SQL)
         old.row_factory = sqlite3.Row
         before = {row["operation_id"]: dict(row) for row in old.execute("SELECT * FROM client_operations")}
@@ -258,7 +259,7 @@ def test_v06_sqlite_copy_preserves_identity_ciphertext_receipts_and_unknown_deli
         flows = list(old.execute("SELECT * FROM client_flows"))
         new_dir = tmp_path / "v07" / "client"
         new_dir.mkdir(parents=True, mode=0o700)
-        with sqlite3.connect(new_dir / "client.sqlite3") as copied:
+        with closing(sqlite3.connect(new_dir / "client.sqlite3")) as copied, copied:
             old.backup(copied)
     original_bytes = original.read_bytes()
     settings = ClientSettings(

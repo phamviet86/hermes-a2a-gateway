@@ -6,7 +6,10 @@ from __future__ import annotations
 import argparse
 import tarfile
 import zipfile
+from email.parser import BytesParser
 from pathlib import Path
+
+from packaging.specifiers import SpecifierSet
 
 FORBIDDEN_NAMES = {
     ".coverage",
@@ -53,6 +56,31 @@ def unsafe(name: str) -> bool:
     )
 
 
+def metadata_versions(path: Path) -> list[str]:
+    if path.suffix == ".whl":
+        with zipfile.ZipFile(path) as archive:
+            data = archive.read(next(name for name in archive.namelist() if name.endswith(".dist-info/METADATA")))
+    else:
+        with tarfile.open(path, "r:gz") as archive:
+            member = next(
+                item for item in archive.getmembers() if item.name.count("/") == 1 and item.name.endswith("/PKG-INFO")
+            )
+            file = archive.extractfile(member)
+            assert file is not None
+            data = file.read()
+    metadata = BytesParser().parsebytes(data)
+    spec = SpecifierSet(metadata["Requires-Python"])
+    versions = [value for value in ("3.11", "3.12", "3.13") if spec.contains(value)]
+    classifiers = {
+        value.removeprefix("Programming Language :: Python :: ")
+        for value in metadata.get_all("Classifier", [])
+        if value.startswith("Programming Language :: Python :: 3.")
+    }
+    if classifiers != set(versions) or not versions or spec.contains("3.10") or spec.contains("3.14"):
+        raise ValueError("Python classifiers and supported interpreter bounds disagree")
+    return versions
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("directory", type=Path)
@@ -76,7 +104,8 @@ def main() -> int:
         if any(set(Path(name).parts) & forbidden for name in names):
             print(f"removed legacy package/assets remain: {path.name}")
             return 1
-        print(f"checked {path.name}: {len(members(path))} members")
+        versions = metadata_versions(path)
+        print(f"checked {path.name}: {len(members(path))} members; advertised Python: {', '.join(versions)}")
     return 0
 
 
